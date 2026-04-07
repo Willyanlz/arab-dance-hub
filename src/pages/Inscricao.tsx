@@ -13,6 +13,7 @@ import { MODALIDADES, CATEGORIAS, PERIODOS } from '@/lib/constants';
 import { getLoteAtual, calcularPreco, calcularDesconto } from '@/lib/pricing';
 import type { Database } from '@/integrations/supabase/types';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import TermosRegulamento from '@/components/TermosRegulamento';
 
 type Lote = Database['public']['Tables']['lotes']['Row'];
 type Categoria = Database['public']['Enums']['categoria_tipo'];
@@ -49,6 +50,7 @@ const Inscricao = () => {
   const [periodo, setPeriodo] = useState<'manha' | 'tarde' | 'nao_competir'>('manha');
   const [participantes, setParticipantes] = useState<Participante[]>([]);
   const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'cartao'>('pix');
+  const [termosAceitos, setTermosAceitos] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/login');
@@ -353,9 +355,11 @@ const Inscricao = () => {
                 </div>
               )}
 
+              <TermosRegulamento accepted={termosAceitos} onAcceptedChange={setTermosAceitos} />
+
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setStep(3)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
-                <Button onClick={handleSubmit} disabled={loading} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">
+                <Button onClick={handleSubmit} disabled={loading || !termosAceitos} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">
                   {loading ? 'Processando...' : 'Confirmar Inscrição'}
                 </Button>
               </div>
