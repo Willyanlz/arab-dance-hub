@@ -41,10 +41,21 @@ const Admin = () => {
 
   const loadInscricoes = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data: inscData } = await supabase
       .from('inscricoes')
-      .select('*, profiles!inscricoes_user_id_fkey(nome, email, cpf, telefone)')
+      .select('*')
       .order('created_at', { ascending: false });
+    if (!inscData) { setLoading(false); return; }
+    
+    // Fetch profiles for all user_ids
+    const userIds = [...new Set(inscData.map(i => i.user_id))];
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('user_id, nome, email, cpf, telefone')
+      .in('user_id', userIds);
+    
+    const profileMap = new Map(profilesData?.map(p => [p.user_id, p]) || []);
+    const data = inscData.map(i => ({ ...i, profiles: profileMap.get(i.user_id) || null }));
     if (data) setInscricoes(data);
     setLoading(false);
   };
