@@ -355,9 +355,11 @@ const Inscricao = () => {
                 </div>
               )}
 
+              <TermosRegulamento accepted={termosAceitos} onAcceptedChange={setTermosAceitos} />
+
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setStep(3)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
-                <Button onClick={handleSubmit} disabled={loading} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">
+                <Button onClick={handleSubmit} disabled={loading || !termosAceitos} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">
                   {loading ? 'Processando...' : 'Confirmar Inscrição'}
                 </Button>
               </div>
