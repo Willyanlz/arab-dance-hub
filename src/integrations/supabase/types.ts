@@ -14,16 +14,275 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      inscricoes: {
+        Row: {
+          categoria: Database["public"]["Enums"]["categoria_tipo"]
+          created_at: string
+          desconto_percentual: number | null
+          id: string
+          lote_id: string | null
+          modalidade: string
+          nome_artistico: string | null
+          nome_coreografia: string
+          nome_escola: string | null
+          num_integrantes: number | null
+          observacoes: string | null
+          periodo: Database["public"]["Enums"]["periodo_tipo"]
+          professora: string | null
+          status: Database["public"]["Enums"]["status_inscricao"]
+          tipo_musica: Database["public"]["Enums"]["musica_tipo"]
+          updated_at: string
+          user_id: string
+          valor_final: number | null
+          valor_total: number | null
+        }
+        Insert: {
+          categoria: Database["public"]["Enums"]["categoria_tipo"]
+          created_at?: string
+          desconto_percentual?: number | null
+          id?: string
+          lote_id?: string | null
+          modalidade: string
+          nome_artistico?: string | null
+          nome_coreografia: string
+          nome_escola?: string | null
+          num_integrantes?: number | null
+          observacoes?: string | null
+          periodo?: Database["public"]["Enums"]["periodo_tipo"]
+          professora?: string | null
+          status?: Database["public"]["Enums"]["status_inscricao"]
+          tipo_musica?: Database["public"]["Enums"]["musica_tipo"]
+          updated_at?: string
+          user_id: string
+          valor_final?: number | null
+          valor_total?: number | null
+        }
+        Update: {
+          categoria?: Database["public"]["Enums"]["categoria_tipo"]
+          created_at?: string
+          desconto_percentual?: number | null
+          id?: string
+          lote_id?: string | null
+          modalidade?: string
+          nome_artistico?: string | null
+          nome_coreografia?: string
+          nome_escola?: string | null
+          num_integrantes?: number | null
+          observacoes?: string | null
+          periodo?: Database["public"]["Enums"]["periodo_tipo"]
+          professora?: string | null
+          status?: Database["public"]["Enums"]["status_inscricao"]
+          tipo_musica?: Database["public"]["Enums"]["musica_tipo"]
+          updated_at?: string
+          user_id?: string
+          valor_final?: number | null
+          valor_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inscricoes_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lotes: {
+        Row: {
+          ativo: boolean | null
+          created_at: string
+          data_fim: string
+          data_inicio: string
+          id: string
+          nome: string
+          numero: number
+          preco_dupla_trio: number
+          preco_grupo_por_integrante: number
+          preco_solo: number
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string
+          data_fim: string
+          data_inicio: string
+          id?: string
+          nome: string
+          numero: number
+          preco_dupla_trio: number
+          preco_grupo_por_integrante: number
+          preco_solo: number
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string
+          data_fim?: string
+          data_inicio?: string
+          id?: string
+          nome?: string
+          numero?: number
+          preco_dupla_trio?: number
+          preco_grupo_por_integrante?: number
+          preco_solo?: number
+        }
+        Relationships: []
+      }
+      pagamentos: {
+        Row: {
+          comprovante_url: string | null
+          created_at: string
+          id: string
+          inscricao_id: string
+          metodo: Database["public"]["Enums"]["pagamento_metodo"]
+          status: Database["public"]["Enums"]["status_inscricao"]
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          comprovante_url?: string | null
+          created_at?: string
+          id?: string
+          inscricao_id: string
+          metodo: Database["public"]["Enums"]["pagamento_metodo"]
+          status?: Database["public"]["Enums"]["status_inscricao"]
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          comprovante_url?: string | null
+          created_at?: string
+          id?: string
+          inscricao_id?: string
+          metodo?: Database["public"]["Enums"]["pagamento_metodo"]
+          status?: Database["public"]["Enums"]["status_inscricao"]
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagamentos_inscricao_id_fkey"
+            columns: ["inscricao_id"]
+            isOneToOne: false
+            referencedRelation: "inscricoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      participantes: {
+        Row: {
+          cpf: string | null
+          created_at: string
+          email: string | null
+          id: string
+          inscricao_id: string
+          nome: string
+          telefone: string | null
+        }
+        Insert: {
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          inscricao_id: string
+          nome: string
+          telefone?: string | null
+        }
+        Update: {
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          inscricao_id?: string
+          nome?: string
+          telefone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participantes_inscricao_id_fkey"
+            columns: ["inscricao_id"]
+            isOneToOne: false
+            referencedRelation: "inscricoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          cpf: string
+          created_at: string
+          email: string
+          id: string
+          is_aluna_jalilete: boolean | null
+          nome: string
+          participante_anterior: boolean | null
+          telefone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cpf?: string
+          created_at?: string
+          email?: string
+          id?: string
+          is_aluna_jalilete?: boolean | null
+          nome?: string
+          participante_anterior?: boolean | null
+          telefone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cpf?: string
+          created_at?: string
+          email?: string
+          id?: string
+          is_aluna_jalilete?: boolean | null
+          nome?: string
+          participante_anterior?: boolean | null
+          telefone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
+      categoria_tipo: "solo" | "dupla_trio" | "grupo"
+      musica_tipo: "solta" | "posicionada"
+      pagamento_metodo: "pix" | "cartao"
+      periodo_tipo: "manha" | "tarde" | "nao_competir"
+      status_inscricao: "pendente" | "pago" | "confirmado" | "cancelado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +409,13 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+      categoria_tipo: ["solo", "dupla_trio", "grupo"],
+      musica_tipo: ["solta", "posicionada"],
+      pagamento_metodo: ["pix", "cartao"],
+      periodo_tipo: ["manha", "tarde", "nao_competir"],
+      status_inscricao: ["pendente", "pago", "confirmado", "cancelado"],
+    },
   },
 } as const
