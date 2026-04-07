@@ -50,6 +50,7 @@ const Inscricao = () => {
   const [periodo, setPeriodo] = useState<'manha' | 'tarde' | 'nao_competir'>('manha');
   const [participantes, setParticipantes] = useState<Participante[]>([]);
   const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'cartao'>('pix');
+  const [termosAceitos, setTermosAceitos] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/login');
