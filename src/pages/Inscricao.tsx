@@ -13,6 +13,7 @@ import { MODALIDADES, CATEGORIAS, PERIODOS } from '@/lib/constants';
 import { getLoteAtual, calcularPreco, calcularDesconto } from '@/lib/pricing';
 import type { Database } from '@/integrations/supabase/types';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import TermosRegulamento from '@/components/TermosRegulamento';
 
 type Lote = Database['public']['Tables']['lotes']['Row'];
 type Categoria = Database['public']['Enums']['categoria_tipo'];
