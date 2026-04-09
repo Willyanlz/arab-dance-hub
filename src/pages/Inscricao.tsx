@@ -5,143 +5,318 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { MODALIDADES, CATEGORIAS, PERIODOS } from '@/lib/constants';
-import { getLoteAtual, calcularPreco, calcularDesconto } from '@/lib/pricing';
-import type { Database } from '@/integrations/supabase/types';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
-import TermosRegulamento from '@/components/TermosRegulamento';
-
-type Lote = Database['public']['Tables']['lotes']['Row'];
-type Categoria = Database['public']['Enums']['categoria_tipo'];
+import {
+  getLoteAtual, calcularPreco, calcularPrecoMostra, calcularPrecoWorkshop,
+  calcularDesconto, WORKSHOP_TIPO_COMPRA, TIPO_PARTICIPACAO_MOSTRA,
+  isEventDay as checkEventDay,
+  type LoteCompetição, type LoteMostra, type LoteWorkshop,
+  type CategoriaType, type TipoCompraWorkshop
+} from '@/lib/pricing';
+import { ArrowLeft, Plus, Trash2, Trophy, Star, Music, BookOpen, ChevronRight } from 'lucide-react';
 
 interface Participante {
   nome: string;
   cpf: string;
-  email: string;
-  telefone: string;
+  email?: string;
+  telefone?: string;
 }
+
+interface WorkshopItem {
+  id: string;
+  nome: string;
+  professor: string;
+  periodo: string;
+  horario: string;
+  ativo: boolean;
+}
+
+const CATEGORIAS = [
+  { value: 'solo', label: 'Solo' },
+  { value: 'dupla_trio', label: 'Dupla/Trio' },
+  { value: 'grupo', label: 'Grupo' },
+];
+
+const PERIODOS = [
+  { value: 'manha', label: 'Manhã' },
+  { value: 'tarde', label: 'Tarde' },
+  { value: 'nao_competir', label: 'Sem preferência de período' },
+];
+
+const TIPO_INSCRICAO_OPTIONS = [
+  {
+    value: 'competicao',
+    label: 'Competição',
+    desc: 'Inscreva-se para competir nas categorias e modalidades do festival.',
+    icon: Trophy,
+    color: 'border-gold text-gold-light',
+  },
+  {
+    value: 'mostra',
+    label: 'Mostra',
+    desc: 'Apresentação não competitiva ou avaliada. Ingresso do dia incluído!',
+    icon: Star,
+    color: 'border-burgundy text-burgundy',
+  },
+  {
+    value: 'workshop',
+    label: 'Workshop',
+    desc: 'Participe das aulas com professoras renomadas do cenário árabe.',
+    icon: BookOpen,
+    color: 'border-primary text-primary',
+  },
+];
 
 const Inscricao = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [lotes, setLotes] = useState<Lote[]>([]);
-  const [loteAtual, setLoteAtual] = useState<Lote | null>(null);
 
-  // Profile
+  // Global state
+  const [tipoInscricao, setTipoInscricao] = useState<'competicao' | 'mostra' | 'workshop' | null>(null);
+  const [step, setStep] = useState(0); // 0 = type selection
+  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+
+  // ── Pricing data ──────────────────────────────────────────────────────────
+  const [lotes, setLotes] = useState<LoteCompetição[]>([]);
+  const [loteAtual, setLoteAtual] = useState<LoteCompetição | null>(null);
+  const [lotesMostra, setLotesMostra] = useState<LoteMostra[]>([]);
+  const [loteAtualMostra, setLoteAtualMostra] = useState<LoteMostra | null>(null);
+  const [lotesWorkshop, setLotesWorkshop] = useState<LoteWorkshop[]>([]);
+  const [loteAtualWorkshop, setLoteAtualWorkshop] = useState<LoteWorkshop | null>(null);
+
+  // ── Config ────────────────────────────────────────────────────────────────
+  const [modalidadesComp, setModalidadesComp] = useState<string[]>([]);
+  const [modalidadesMostra, setModalidadesMostra] = useState<string[]>([]);
+  const [comoSoubeOpcoes, setComoSoubeOpcoes] = useState<string[]>([]);
+  const [workshopsDisponiveis, setWorkshopsDisponiveis] = useState<WorkshopItem[]>([]);
+  const [termosTexto, setTermosTexto] = useState<Record<string, string>>({});
+  const [inscricoesAbertas, setInscricoesAbertas] = useState<Record<string, boolean>>({});
+
+  // ── Profile fields ────────────────────────────────────────────────────────
   const [cpf, setCpf] = useState('');
   const [telefone, setTelefone] = useState('');
   const [isJalilete, setIsJalilete] = useState(false);
   const [isAnterior, setIsAnterior] = useState(false);
 
-  // Inscrição
-  const [categoria, setCategoria] = useState<Categoria>('solo');
-  const [modalidade, setModalidade] = useState('');
+  // ── Shared fields ─────────────────────────────────────────────────────────
   const [nomeEscola, setNomeEscola] = useState('');
   const [professora, setProfessora] = useState('');
+  const [categoria, setCategoria] = useState<CategoriaType>('solo');
+  const [participantes, setParticipantes] = useState<Participante[]>([]);
+  const [extraHarem, setExtraHarem] = useState(false);
+  const [comoSoube, setComoSoube] = useState('');
+  const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'cartao'>('pix');
+  const [termosAceitos, setTermosAceitos] = useState(false);
+  const [observacoes, setObservacoes] = useState('');
+
+  // ── Competição fields ─────────────────────────────────────────────────────
+  const [modalidade, setModalidade] = useState('');
   const [nomeCoreografia, setNomeCoreografia] = useState('');
   const [nomeArtistico, setNomeArtistico] = useState('');
   const [tipoMusica, setTipoMusica] = useState<'solta' | 'posicionada'>('solta');
-  const [periodo, setPeriodo] = useState<'manha' | 'tarde' | 'nao_competir'>('manha');
-  const [participantes, setParticipantes] = useState<Participante[]>([]);
-  const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'cartao'>('pix');
-  const [termosAceitos, setTermosAceitos] = useState(false);
+  const [periodo, setPeriodo] = useState<string>('manha');
+  const [termoAtraso, setTermoAtraso] = useState(false);
+  const [termoMusica, setTermoMusica] = useState(false);
+  const [termoSemEnsaio, setTermoSemEnsaio] = useState(false);
 
-  useEffect(() => {
-    if (!authLoading && !user) navigate('/login');
-  }, [user, authLoading]);
+  // ── Mostra fields ─────────────────────────────────────────────────────────
+  const [tipoParticipacao, setTipoParticipacao] = useState('mostra');
+  const [modalidadeMostra, setModalidadeMostra] = useState('');
+  const [nomeCoreografiaMostra, setNomeCoreografiaMostra] = useState('');
+  const [tipoMusicaMostra, setTipoMusicaMostra] = useState<'solta' | 'posicionada'>('solta');
+  const [periodoMostra, setPeriodoMostra] = useState('manha');
+  const [sugestaoHorario, setSugestaoHorario] = useState('');
+  const [termoAtrasoM, setTermoAtrasoM] = useState(false);
+  const [termoMusicaM, setTermoMusicaM] = useState(false);
+  const [termoSemEnsaioM, setTermoSemEnsaioM] = useState(false);
 
-  useEffect(() => {
-    supabase.from('lotes').select('*').order('numero').then(({ data }) => {
-      if (data) {
-        setLotes(data);
-        setLoteAtual(getLoteAtual(data));
-      }
-    });
-  }, []);
+  // ── Workshop fields ───────────────────────────────────────────────────────
+  const [workshopsSelecionados, setWorkshopsSelecionados] = useState<string[]>([]);
+  const [tipoCompraWorkshop, setTipoCompraWorkshop] = useState<TipoCompraWorkshop>('1_aula');
 
-  const numIntegrantes = categoria === 'solo' ? 1 : categoria === 'dupla_trio' ? participantes.length + 1 : participantes.length + 1;
+  // ── Computed ──────────────────────────────────────────────────────────────
+  const eventoDay = checkEventDay();
+  const numIntegrantes = categoria === 'solo' ? 1 : participantes.length + 1;
 
-  const isEventDay = (() => {
-    const today = new Date().toISOString().split('T')[0];
-    return today === '2026-08-08' || today === '2026-08-09';
+  const precoBase = (() => {
+    if (tipoInscricao === 'competicao' && loteAtual)
+      return calcularPreco(loteAtual, categoria, numIntegrantes, eventoDay);
+    if (tipoInscricao === 'mostra' && loteAtualMostra)
+      return calcularPrecoMostra(loteAtualMostra, categoria, numIntegrantes, eventoDay);
+    if (tipoInscricao === 'workshop' && loteAtualWorkshop)
+      return calcularPrecoWorkshop(loteAtualWorkshop, tipoCompraWorkshop, eventoDay);
+    return 0;
   })();
 
-  const precoBase = loteAtual ? calcularPreco(loteAtual, categoria, numIntegrantes, isEventDay) : 0;
   const { percentual: desconto, valorFinal } = calcularDesconto(precoBase, isJalilete, isAnterior);
 
-  const addParticipante = () => {
-    setParticipantes([...participantes, { nome: '', cpf: '', email: '', telefone: '' }]);
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!authLoading && !user) navigate('/login?redirect=/inscricao');
+  }, [user, authLoading]);
+
+  // ── Load data ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      setLoadingData(true);
+      const [
+        { data: lotesData },
+        { data: lotesMostraData },
+        { data: lotesWorkshopData },
+        { data: configData },
+        { data: workshopsData },
+        { data: termosData },
+        { data: profileData },
+      ] = await Promise.all([
+        supabase.from('lotes').select('*').order('numero'),
+        supabase.from('lotes_mostra').select('*').order('numero'),
+        supabase.from('lotes_workshop').select('*').order('numero'),
+        supabase.from('site_config').select('chave,valor'),
+        supabase.from('workshops_config').select('*').eq('ativo', true).order('nome'),
+        supabase.from('termos_config').select('tipo,conteudo'),
+        supabase.from('profiles').select('cpf,telefone,is_aluna_jalilete,participante_anterior').eq('user_id', user.id).single(),
+      ]);
+
+      if (lotesData) { setLotes(lotesData as any); setLoteAtual(getLoteAtual(lotesData as any)); }
+      if (lotesMostraData) { setLotesMostra(lotesMostraData as any); setLoteAtualMostra(getLoteAtual(lotesMostraData as any)); }
+      if (lotesWorkshopData) { setLotesWorkshop(lotesWorkshopData as any); setLoteAtualWorkshop(getLoteAtual(lotesWorkshopData as any)); }
+      if (workshopsData) setWorkshopsDisponiveis(workshopsData as any);
+      if (termosData) {
+        const map: Record<string, string> = {};
+        termosData.forEach((t: any) => { map[t.tipo] = t.conteudo; });
+        setTermosTexto(map);
+      }
+      if (configData) {
+        const map: Record<string, any> = {};
+        configData.forEach((c: any) => { map[c.chave] = c.valor; });
+        setModalidadesComp(Array.isArray(map.modalidades_competicao) ? map.modalidades_competicao : []);
+        setModalidadesMostra(Array.isArray(map.modalidades_mostra) ? map.modalidades_mostra : []);
+        setComoSoubeOpcoes(Array.isArray(map.como_soube_opcoes) ? map.como_soube_opcoes : []);
+        setInscricoesAbertas({
+          competicao: map.inscricoes_abertas_competicao !== false,
+          mostra: map.inscricoes_abertas_mostra !== false,
+          workshop: map.inscricoes_abertas_workshop !== false,
+        });
+      }
+      if (profileData) {
+        setCpf(profileData.cpf || '');
+        setTelefone(profileData.telefone || '');
+        setIsJalilete(!!profileData.is_aluna_jalilete);
+        setIsAnterior(!!profileData.participante_anterior);
+      }
+      setLoadingData(false);
+    };
+    load();
+  }, [user]);
+
+  // ── Participant helpers ───────────────────────────────────────────────────
+  const addParticipante = () => setParticipantes([...participantes, { nome: '', cpf: '' }]);
+  const removeParticipante = (i: number) => setParticipantes(participantes.filter((_, idx) => idx !== i));
+  const updateParticipante = (i: number, field: keyof Participante, value: string) => {
+    const u = [...participantes];
+    u[i] = { ...u[i], [field]: value };
+    setParticipantes(u);
   };
 
-  const removeParticipante = (index: number) => {
-    setParticipantes(participantes.filter((_, i) => i !== index));
+  // ── Workshop toggle ───────────────────────────────────────────────────────
+  const toggleWorkshop = (id: string) => {
+    setWorkshopsSelecionados(prev =>
+      prev.includes(id) ? prev.filter(w => w !== id) : [...prev, id]
+    );
   };
 
-  const updateParticipante = (index: number, field: keyof Participante, value: string) => {
-    const updated = [...participantes];
-    updated[index] = { ...updated[index], [field]: value };
-    setParticipantes(updated);
-  };
-
+  // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!user || !loteAtual) return;
+    if (!user) return;
     setLoading(true);
     try {
       // Update profile
-      await supabase.from('profiles').update({
-        cpf, telefone, is_aluna_jalilete: isJalilete, participante_anterior: isAnterior,
-      }).eq('user_id', user.id);
+      await supabase.from('profiles').update({ cpf, telefone, is_aluna_jalilete: isJalilete, participante_anterior: isAnterior }).eq('user_id', user.id);
 
-      // Create inscription
-      const { data: inscricao, error: inscError } = await supabase.from('inscricoes').insert({
+      const baseData = {
         user_id: user.id,
+        tipo_inscricao: tipoInscricao!,
         categoria,
-        modalidade,
         nome_escola: nomeEscola || null,
         professora: professora || null,
-        nome_coreografia: nomeCoreografia,
-        nome_artistico: nomeArtistico || null,
-        tipo_musica: tipoMusica,
-        periodo,
-        lote_id: loteAtual.id,
+        num_integrantes: numIntegrantes,
         valor_total: precoBase,
         desconto_percentual: desconto,
         valor_final: valorFinal,
-        num_integrantes: numIntegrantes,
-      }).select().single();
+        extra_harem: extraHarem,
+        como_soube: comoSoube || null,
+        observacoes: observacoes || null,
+      };
 
+      let inscData: Record<string, any> = baseData;
+
+      if (tipoInscricao === 'competicao') {
+        inscData = {
+          ...baseData,
+          modalidade,
+          nome_coreografia: nomeCoreografia,
+          nome_artistico: nomeArtistico || null,
+          tipo_musica: tipoMusica,
+          periodo: periodo as any,
+          lote_id: loteAtual?.id || null,
+          termos_atraso: termoAtraso,
+          termos_musica: termoMusica,
+          termos_sem_ensaio: termoSemEnsaio,
+        };
+      } else if (tipoInscricao === 'mostra') {
+        inscData = {
+          ...baseData,
+          modalidade: modalidadeMostra,
+          nome_coreografia: nomeCoreografiaMostra,
+          tipo_musica: tipoMusicaMostra,
+          tipo_participacao: tipoParticipacao,
+          preferencia_periodo: periodoMostra,
+          sugestao_horario: sugestaoHorario || null,
+          lote_mostra_id: loteAtualMostra?.id || null,
+          termos_atraso: termoAtrasoM,
+          termos_musica: termoMusicaM,
+          termos_sem_ensaio: termoSemEnsaioM,
+        };
+      } else if (tipoInscricao === 'workshop') {
+        inscData = {
+          ...baseData,
+          modalidade: workshopsSelecionados.join(', '),
+          nome_coreografia: '',
+          tipo_compra_workshop: tipoCompraWorkshop,
+          lote_workshop_id: loteAtualWorkshop?.id || null,
+        };
+      }
+
+      const { data: insc, error: inscError } = await supabase.from('inscricoes').insert(inscData).select().single();
       if (inscError) throw inscError;
 
-      // Add participants
-      if (participantes.length > 0 && inscricao) {
-        const { error: partError } = await supabase.from('participantes').insert(
-          participantes.map(p => ({
-            inscricao_id: inscricao.id,
-            nome: p.nome,
-            cpf: p.cpf || null,
-            email: p.email || null,
-            telefone: p.telefone || null,
-          }))
+      // Participantes
+      if (participantes.length > 0 && insc) {
+        await supabase.from('participantes').insert(
+          participantes.map(p => ({ inscricao_id: insc.id, nome: p.nome, cpf: p.cpf || null, email: p.email || null, telefone: p.telefone || null }))
         );
-        if (partError) throw partError;
       }
 
-      // Create payment record
-      if (inscricao) {
-        await supabase.from('pagamentos').insert({
-          inscricao_id: inscricao.id,
-          metodo: metodoPagamento,
-          valor: valorFinal,
-        });
+      // Workshop selections
+      if (tipoInscricao === 'workshop' && workshopsSelecionados.length > 0 && insc) {
+        await supabase.from('inscricao_workshops').insert(
+          workshopsSelecionados.map(wid => ({ inscricao_id: insc.id, workshop_id: wid }))
+        );
       }
 
-      toast({ title: 'Inscrição realizada!', description: 'Aguarde a confirmação do pagamento.' });
+      // Pagamento
+      if (insc) {
+        await supabase.from('pagamentos').insert({ inscricao_id: insc.id, metodo: metodoPagamento, valor: valorFinal });
+      }
+
+      toast({ title: '✅ Inscrição realizada!', description: 'Aguarde a confirmação do pagamento.' });
       navigate('/dashboard');
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
@@ -150,62 +325,148 @@ const Inscricao = () => {
     }
   };
 
-  if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Carregando...</p></div>;
+  // ── Validate steps ────────────────────────────────────────────────────────
+  const canProceedStep2 = () => {
+    if (tipoInscricao === 'competicao') return !!modalidade && !!nomeCoreografia;
+    if (tipoInscricao === 'mostra') return !!modalidadeMostra && !!nomeCoreografiaMostra;
+    if (tipoInscricao === 'workshop') return workshopsSelecionados.length > 0 && !!tipoCompraWorkshop;
+    return false;
+  };
+
+  const canSubmit = () => {
+    if (!termosAceitos) return false;
+    if (tipoInscricao === 'competicao') return termoAtraso && termoMusica;
+    if (tipoInscricao === 'mostra') return termoAtrasoM && termoMusicaM && termoSemEnsaioM;
+    return true;
+  };
+
+  // ── Render loading ────────────────────────────────────────────────────────
+  if (authLoading || loadingData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-muted-foreground font-sans">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalSteps = tipoInscricao === 'workshop' ? 3 : 4;
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-2xl mx-auto">
-        <Link to="/" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 font-sans text-sm">
+        <Link to="/" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 font-sans text-sm transition-colors">
           <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
         </Link>
-        <h1 className="text-3xl font-serif font-bold text-foreground mb-2">Inscrição</h1>
-        <p className="text-muted-foreground font-sans mb-8">9º F.A.D.D.A - Festival Araraquarense de Danças Árabes</p>
+        <h1 className="text-3xl font-serif font-bold text-foreground mb-1">Inscrição</h1>
+        <p className="text-muted-foreground font-sans mb-6 text-sm">9º F.A.D.D.A - Festival Araraquarense de Danças Árabes</p>
 
-        {/* Progress */}
-        <div className="flex gap-2 mb-8">
-          {[1, 2, 3, 4].map(s => (
-            <div key={s} className={`h-2 flex-1 rounded-full ${s <= step ? 'bg-gradient-gold' : 'bg-muted'}`} />
-          ))}
-        </div>
+        {/* Progress bar */}
+        {step > 0 && (
+          <div className="flex gap-1.5 mb-8">
+            {Array.from({ length: totalSteps }).map((_, i) => (
+              <div key={i} className={`h-1.5 flex-1 rounded-full transition-all ${i < step ? 'bg-gradient-gold' : 'bg-muted'}`} />
+            ))}
+          </div>
+        )}
 
-        {/* Step 1: Dados pessoais */}
+        {/* ─── STEP 0: Tipo de inscrição ─────────────────────────────────── */}
+        {step === 0 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-serif font-semibold text-foreground mb-6">Como deseja participar?</h2>
+            {TIPO_INSCRICAO_OPTIONS.map(({ value, label, desc, icon: Icon, color }) => {
+              const aberta = inscricoesAbertas[value] !== false;
+              return (
+                <button
+                  key={value}
+                  disabled={!aberta}
+                  onClick={() => { setTipoInscricao(value as any); setStep(1); }}
+                  className={`w-full text-left p-5 rounded-xl border-2 transition-all duration-200 ${aberta ? 'hover:border-gold/60 hover:bg-card cursor-pointer' : 'opacity-50 cursor-not-allowed'} bg-card border-border flex items-start gap-4 group`}
+                >
+                  <div className={`p-2 rounded-lg bg-primary/10 ${color} mt-0.5`}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-serif font-semibold text-foreground">{label}</p>
+                      {!aberta && <Badge variant="outline" className="text-xs border-border text-muted-foreground font-sans">Encerrado</Badge>}
+                      {aberta && value === 'mostra' && <Badge className="text-xs bg-primary/15 text-primary border-0 font-sans">🎟️ Ingresso incluso</Badge>}
+                    </div>
+                    <p className="text-sm text-muted-foreground font-sans mt-1">{desc}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors mt-1 shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ─── STEP 1: Dados Pessoais ────────────────────────────────────── */}
         {step === 1 && (
           <Card className="bg-card border-border">
             <CardHeader>
+              <div className="flex items-center gap-2">
+                {tipoInscricao && TIPO_INSCRICAO_OPTIONS.find(t => t.value === tipoInscricao) && (
+                  <Badge className="bg-primary/15 text-primary border-0 font-sans text-xs">
+                    {TIPO_INSCRICAO_OPTIONS.find(t => t.value === tipoInscricao)?.label}
+                  </Badge>
+                )}
+              </div>
               <CardTitle className="font-serif text-foreground">1. Dados Pessoais</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label className="text-foreground font-sans">CPF</Label>
+                <Label className="text-foreground font-sans">CPF *</Label>
                 <Input value={cpf} onChange={e => setCpf(e.target.value)} placeholder="000.000.000-00" className="bg-background border-border text-foreground" />
               </div>
               <div>
-                <Label className="text-foreground font-sans">Telefone</Label>
+                <Label className="text-foreground font-sans">Telefone / WhatsApp *</Label>
                 <Input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="(16) 99999-9999" className="bg-background border-border text-foreground" />
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox id="jalilete" checked={isJalilete} onCheckedChange={(v) => setIsJalilete(!!v)} />
-                <label htmlFor="jalilete" className="text-sm font-sans text-foreground">Sou aluna Jalilete (desconto 10%)</label>
+                <Checkbox id="jalilete" checked={isJalilete} onCheckedChange={v => setIsJalilete(!!v)} />
+                <label htmlFor="jalilete" className="text-sm font-sans text-foreground cursor-pointer">Sou aluna Jalilete <span className="text-primary">(10% desconto em todos os lotes)</span></label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox id="anterior" checked={isAnterior} onCheckedChange={(v) => setIsAnterior(!!v)} />
-                <label htmlFor="anterior" className="text-sm font-sans text-foreground">Participei em edições anteriores (desconto 5%)</label>
+                <Checkbox id="anterior" checked={isAnterior} onCheckedChange={v => setIsAnterior(!!v)} />
+                <label htmlFor="anterior" className="text-sm font-sans text-foreground cursor-pointer">Participei de edições anteriores <span className="text-primary">(5% desconto em todos os lotes)</span></label>
               </div>
-              <Button onClick={() => setStep(2)} className="w-full bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => { setStep(0); setTipoInscricao(null); }} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
+                <Button onClick={() => { if (!cpf || !telefone) { toast({ title: 'Preencha CPF e telefone', variant: 'destructive' }); return; } setStep(2); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
+              </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Step 2: Detalhes da apresentação */}
-        {step === 2 && (
+        {/* ─── STEP 2: Detalhes por tipo ────────────────────────────────── */}
+        {step === 2 && tipoInscricao === 'competicao' && (
           <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="font-serif text-foreground">2. Detalhes da Apresentação</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="font-serif text-foreground">2. Detalhes da Apresentação</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label className="text-foreground font-sans">Categoria</Label>
-                <Select value={categoria} onValueChange={(v) => setCategoria(v as Categoria)}>
+                <Label className="text-foreground font-sans">Período *</Label>
+                <Select value={periodo} onValueChange={setPeriodo}>
+                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">Modalidade *</Label>
+                <Select value={modalidade} onValueChange={setModalidade}>
+                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {modalidadesComp.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">Categoria *</Label>
+                <Select value={categoria} onValueChange={v => { setCategoria(v as CategoriaType); setParticipantes([]); }}>
                   <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {CATEGORIAS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
@@ -213,83 +474,185 @@ const Inscricao = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-foreground font-sans">Modalidade</Label>
-                <Select value={modalidade} onValueChange={setModalidade}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>
-                    {MODALIDADES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
                 <Label className="text-foreground font-sans">Nome da Coreografia *</Label>
-                <Input value={nomeCoreografia} onChange={e => setNomeCoreografia(e.target.value)} required className="bg-background border-border text-foreground" />
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Nome Artístico</Label>
-                <Input value={nomeArtistico} onChange={e => setNomeArtistico(e.target.value)} className="bg-background border-border text-foreground" />
+                <Input value={nomeCoreografia} onChange={e => setNomeCoreografia(e.target.value)} className="bg-background border-border text-foreground" />
               </div>
               <div>
                 <Label className="text-foreground font-sans">Nome da Escola</Label>
                 <Input value={nomeEscola} onChange={e => setNomeEscola(e.target.value)} className="bg-background border-border text-foreground" />
               </div>
               <div>
-                <Label className="text-foreground font-sans">Professora</Label>
+                <Label className="text-foreground font-sans">Nome da Professora</Label>
                 <Input value={professora} onChange={e => setProfessora(e.target.value)} className="bg-background border-border text-foreground" />
               </div>
               <div>
+                <Label className="text-foreground font-sans">Nome Artístico</Label>
+                <Input value={nomeArtistico} onChange={e => setNomeArtistico(e.target.value)} className="bg-background border-border text-foreground" />
+              </div>
+              <div>
                 <Label className="text-foreground font-sans">Tipo de Música</Label>
-                <Select value={tipoMusica} onValueChange={(v) => setTipoMusica(v as 'solta' | 'posicionada')}>
+                <Select value={tipoMusica} onValueChange={v => setTipoMusica(v as any)}>
                   <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="solta">Solta</SelectItem>
-                    <SelectItem value="posicionada">Posicionada</SelectItem>
+                    <SelectItem value="posicionada">Marcada / Posicionada</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label className="text-foreground font-sans">Período</Label>
-                <Select value={periodo} onValueChange={(v) => setPeriodo(v as any)}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Avisos de modalidade */}
-              {modalidade === 'Semi-profissional' && (
-                <div className="p-3 bg-primary/10 rounded-lg text-sm font-sans text-foreground border border-gold/30">
-                  ⚠️ <strong>Semi-profissional:</strong> Tema obrigatório FILMES. Use elementos (espada, asas, etc). NÃO use véu simples.
-                </div>
-              )}
-              {modalidade === 'Profissional' && (
-                <div className="p-3 bg-primary/10 rounded-lg text-sm font-sans text-foreground border border-gold/30">
-                  ⚠️ <strong>Profissional:</strong> Música sorteada. Uso obrigatório de véu (dependendo do tipo).
-                </div>
-              )}
-
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-2">
                 <Button variant="outline" onClick={() => setStep(1)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
-                <Button onClick={() => { if (!modalidade || !nomeCoreografia) { toast({ title: 'Preencha os campos obrigatórios', variant: 'destructive' }); return; } setStep(3); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
+                <Button onClick={() => { if (!canProceedStep2()) { toast({ title: 'Preencha os campos obrigatórios', variant: 'destructive' }); return; } setStep(3); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Step 3: Participantes (for dupla/trio/grupo) */}
-        {step === 3 && (
+        {step === 2 && tipoInscricao === 'mostra' && (
           <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="font-serif text-foreground">3. Participantes</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="font-serif text-foreground">2. Detalhes da Mostra</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="text-foreground font-sans">Tipo de Participação *</Label>
+                <Select value={tipoParticipacao} onValueChange={setTipoParticipacao}>
+                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {TIPO_PARTICIPACAO_MOSTRA.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">Categoria *</Label>
+                <Select value={categoria} onValueChange={v => { setCategoria(v as CategoriaType); setParticipantes([]); }}>
+                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIAS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">Modalidade de Mostra *</Label>
+                <Select value={modalidadeMostra} onValueChange={setModalidadeMostra}>
+                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {modalidadesMostra.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">Nome da Coreografia *</Label>
+                <Input value={nomeCoreografiaMostra} onChange={e => setNomeCoreografiaMostra(e.target.value)} className="bg-background border-border text-foreground" />
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">Nome da Escola</Label>
+                <Input value={nomeEscola} onChange={e => setNomeEscola(e.target.value)} className="bg-background border-border text-foreground" />
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">Nome da Professora</Label>
+                <Input value={professora} onChange={e => setProfessora(e.target.value)} className="bg-background border-border text-foreground" />
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">Tipo de Música</Label>
+                <Select value={tipoMusicaMostra} onValueChange={v => setTipoMusicaMostra(v as any)}>
+                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="solta">Solta</SelectItem>
+                    <SelectItem value="posicionada">Marcada / Posicionada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">Preferência de Período</Label>
+                <Select value={periodoMostra} onValueChange={setPeriodoMostra}>
+                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manha">Manhã</SelectItem>
+                    <SelectItem value="tarde">Tarde</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">Sugestão de Horário</Label>
+                <Input value={sugestaoHorario} onChange={e => setSugestaoHorario(e.target.value)} placeholder="Ex: 14:30" className="bg-background border-border text-foreground" />
+              </div>
+              <div className="p-4 bg-primary/5 border border-gold/20 rounded-lg text-sm font-sans text-foreground">
+                🎟️ <strong>Incluso na inscrição:</strong> Ingresso para o dia todo (9h até 18:30). Para o show de gala e premiações, adquira ingresso via Sympla.
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => setStep(1)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
+                <Button onClick={() => { if (!canProceedStep2()) { toast({ title: 'Preencha os campos obrigatórios', variant: 'destructive' }); return; } setStep(3); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === 2 && tipoInscricao === 'workshop' && (
+          <Card className="bg-card border-border">
+            <CardHeader><CardTitle className="font-serif text-foreground">2. Escolha dos Workshops</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="text-foreground font-sans mb-3 block">Tipo de Compra *</Label>
+                <Select value={tipoCompraWorkshop} onValueChange={v => setTipoCompraWorkshop(v as TipoCompraWorkshop)}>
+                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {WORKSHOP_TIPO_COMPRA.map(t => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label} {loteAtualWorkshop ? `— R$ ${(loteAtualWorkshop as any)[`preco_${t.value.replace('pacote_completo', 'pacote_completo').replace('_aula', '_aula').replace('_aulas', '_aulas')}`]?.toFixed(2) || ''}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-foreground font-sans mb-3 block">Workshops Disponíveis *</Label>
+                <div className="space-y-2">
+                  {workshopsDisponiveis.map(w => (
+                    <button
+                      key={w.id}
+                      type="button"
+                      onClick={() => toggleWorkshop(w.id)}
+                      className={`w-full text-left p-3 rounded-lg border transition-all ${workshopsSelecionados.includes(w.id) ? 'border-gold bg-primary/10' : 'border-border bg-background hover:border-gold/40'}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-foreground font-sans text-sm">{w.nome}</p>
+                          <p className="text-xs text-muted-foreground font-sans">{w.professor} · {w.periodo === 'manha' ? '☀️ Manhã' : '🌇 Tarde'} {w.horario && `· ${w.horario}`}</p>
+                        </div>
+                        {workshopsSelecionados.includes(w.id) && (
+                          <div className="w-5 h-5 rounded-full bg-gradient-gold flex items-center justify-center shrink-0">
+                            <span className="text-white text-xs">✓</span>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {workshopsSelecionados.length > 0 && (
+                  <p className="text-xs text-primary mt-2 font-sans">{workshopsSelecionados.length} workshop(s) selecionado(s)</p>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="harem_w" checked={extraHarem} onCheckedChange={v => setExtraHarem(!!v)} />
+                <label htmlFor="harem_w" className="text-sm font-sans text-foreground cursor-pointer">Participar do Harem das Fadas?</label>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => setStep(1)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
+                <Button onClick={() => { if (!canProceedStep2()) { toast({ title: 'Selecione ao menos 1 workshop', variant: 'destructive' }); return; } setStep(3); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ─── STEP 3: Participantes ─────────────────────────────────────── */}
+        {step === 3 && tipoInscricao !== 'workshop' && (
+          <Card className="bg-card border-border">
+            <CardHeader><CardTitle className="font-serif text-foreground">3. Participantes</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {categoria === 'solo' ? (
-                <p className="text-muted-foreground font-sans">Categoria solo — apenas você.</p>
+                <p className="text-muted-foreground font-sans text-sm">Categoria solo — apenas você participa desta inscrição.</p>
               ) : (
                 <>
                   <p className="text-sm text-muted-foreground font-sans">
-                    Adicione os demais participantes ({categoria === 'dupla_trio' ? 'dupla ou trio' : 'grupo'}).
+                    Adicione todos os participantes. <strong className="text-foreground">Nome e CPF são obrigatórios</strong> para cada integrante.
                   </p>
                   {participantes.map((p, i) => (
                     <div key={i} className="p-4 bg-muted rounded-lg space-y-3">
@@ -297,10 +660,10 @@ const Inscricao = () => {
                         <span className="text-sm font-semibold text-foreground font-sans">Participante {i + 2}</span>
                         <Button variant="ghost" size="icon" onClick={() => removeParticipante(i)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                       </div>
-                      <Input placeholder="Nome" value={p.nome} onChange={e => updateParticipante(i, 'nome', e.target.value)} className="bg-background border-border text-foreground" />
-                      <Input placeholder="CPF" value={p.cpf} onChange={e => updateParticipante(i, 'cpf', e.target.value)} className="bg-background border-border text-foreground" />
-                      <Input placeholder="Email" value={p.email} onChange={e => updateParticipante(i, 'email', e.target.value)} className="bg-background border-border text-foreground" />
-                      <Input placeholder="Telefone" value={p.telefone} onChange={e => updateParticipante(i, 'telefone', e.target.value)} className="bg-background border-border text-foreground" />
+                      <Input placeholder="Nome completo *" value={p.nome} onChange={e => updateParticipante(i, 'nome', e.target.value)} className="bg-background border-border text-foreground" />
+                      <Input placeholder="CPF *" value={p.cpf} onChange={e => updateParticipante(i, 'cpf', e.target.value)} className="bg-background border-border text-foreground" />
+                      <Input placeholder="E-mail" value={p.email || ''} onChange={e => updateParticipante(i, 'email', e.target.value)} className="bg-background border-border text-foreground" />
+                      <Input placeholder="Telefone" value={p.telefone || ''} onChange={e => updateParticipante(i, 'telefone', e.target.value)} className="bg-background border-border text-foreground" />
                     </div>
                   ))}
                   <Button variant="outline" onClick={addParticipante} className="w-full border-border text-foreground font-sans">
@@ -308,7 +671,13 @@ const Inscricao = () => {
                   </Button>
                 </>
               )}
-              <div className="flex gap-3">
+              {tipoInscricao === 'mostra' && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="harem_m" checked={extraHarem} onCheckedChange={v => setExtraHarem(!!v)} />
+                  <label htmlFor="harem_m" className="text-sm font-sans text-foreground cursor-pointer">Participar do Harem das Fadas?</label>
+                </div>
+              )}
+              <div className="flex gap-3 pt-2">
                 <Button variant="outline" onClick={() => setStep(2)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
                 <Button onClick={() => setStep(4)} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
               </div>
@@ -316,29 +685,42 @@ const Inscricao = () => {
           </Card>
         )}
 
-        {/* Step 4: Pagamento e resumo */}
-        {step === 4 && (
+        {/* ─── STEP 3 (Workshop): Participantes do grupo ──────────────── */}
+        {step === 3 && tipoInscricao === 'workshop' && (
           <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="font-serif text-foreground">4. Resumo e Pagamento</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-muted p-4 rounded-lg space-y-2 font-sans">
-                <div className="flex justify-between text-sm text-foreground"><span>Categoria:</span><span className="font-medium">{CATEGORIAS.find(c => c.value === categoria)?.label}</span></div>
-                <div className="flex justify-between text-sm text-foreground"><span>Modalidade:</span><span className="font-medium">{modalidade}</span></div>
-                <div className="flex justify-between text-sm text-foreground"><span>Coreografia:</span><span className="font-medium">{nomeCoreografia}</span></div>
-                <div className="flex justify-between text-sm text-foreground"><span>Período:</span><span className="font-medium">{PERIODOS.find(p => p.value === periodo)?.label}</span></div>
-                <div className="flex justify-between text-sm text-foreground"><span>Lote:</span><span className="font-medium">{loteAtual?.nome || 'N/A'}</span></div>
-                {numIntegrantes > 1 && <div className="flex justify-between text-sm text-foreground"><span>Integrantes:</span><span className="font-medium">{numIntegrantes}</span></div>}
-                <hr className="border-border" />
-                <div className="flex justify-between text-sm text-foreground"><span>Valor base:</span><span>R$ {precoBase.toFixed(2)}</span></div>
-                {desconto > 0 && <div className="flex justify-between text-sm text-primary"><span>Desconto ({desconto}%):</span><span>- R$ {(precoBase - valorFinal).toFixed(2)}</span></div>}
-                <div className="flex justify-between text-lg font-bold text-foreground"><span>Total:</span><span className="text-primary">R$ {valorFinal.toFixed(2)}</span></div>
+            <CardHeader><CardTitle className="font-serif text-foreground">3. Resumo e Pagamento</CardTitle></CardHeader>
+            <CardContent className="space-y-5">
+              {/* Summary */}
+              <div className="bg-muted p-4 rounded-lg space-y-2 font-sans text-sm">
+                <p className="font-semibold text-foreground mb-2">Resumo</p>
+                {workshopsSelecionados.map(id => {
+                  const w = workshopsDisponiveis.find(wd => wd.id === id);
+                  return w ? <p key={id} className="text-muted-foreground">• {w.nome} ({w.professor})</p> : null;
+                })}
+                <div className="border-t border-border pt-2 mt-2">
+                  <div className="flex justify-between text-foreground"><span>Tipo:</span><span>{WORKSHOP_TIPO_COMPRA.find(t => t.value === tipoCompraWorkshop)?.label}</span></div>
+                  <div className="flex justify-between text-foreground"><span>Lote atual:</span><span>{loteAtualWorkshop?.nome || 'N/A'}</span></div>
+                  <div className="flex justify-between text-foreground font-bold text-lg mt-1"><span>Total:</span><span className="text-primary">R$ {valorFinal.toFixed(2)}</span></div>
+                  {desconto > 0 && <p className="text-primary text-xs">Desconto de {desconto}% aplicado</p>}
+                </div>
               </div>
+
+              {/* Como soube */}
+              {comoSoubeOpcoes.length > 0 && (
+                <div>
+                  <Label className="text-foreground font-sans">Como soube do festival?</Label>
+                  <Select value={comoSoube} onValueChange={setComoSoube}>
+                    <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      {comoSoubeOpcoes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div>
                 <Label className="text-foreground font-sans">Método de Pagamento</Label>
-                <Select value={metodoPagamento} onValueChange={(v) => setMetodoPagamento(v as 'pix' | 'cartao')}>
+                <Select value={metodoPagamento} onValueChange={v => setMetodoPagamento(v as any)}>
                   <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pix">PIX</SelectItem>
@@ -346,20 +728,174 @@ const Inscricao = () => {
                   </SelectContent>
                 </Select>
               </div>
-
               {metodoPagamento === 'pix' && (
                 <div className="p-4 bg-muted rounded-lg text-center font-sans">
-                  <p className="text-sm text-muted-foreground mb-2">Chave PIX:</p>
+                  <p className="text-sm text-muted-foreground mb-1">Chave PIX:</p>
                   <p className="font-bold text-foreground text-lg">fadda@festival.com.br</p>
-                  <p className="text-xs text-muted-foreground mt-2">Envie o comprovante para confirmação</p>
+                  <p className="text-xs text-muted-foreground mt-1">Envie o comprovante para confirmação</p>
                 </div>
               )}
 
-              <TermosRegulamento accepted={termosAceitos} onAcceptedChange={setTermosAceitos} />
+              {/* ── TERMOS WORKSHOP ── */}
+              <div className="rounded-xl border-2 border-gold/40 bg-primary/5 overflow-hidden">
+                <div className="flex items-center gap-2 bg-gradient-gold px-4 py-3">
+                  <span className="text-lg">📋</span>
+                  <p className="font-serif font-bold text-primary-foreground text-base">Regulamento — Workshop</p>
+                </div>
+                <div className="px-4 pt-4 pb-3 space-y-3">
+                  {termosTexto['workshop'] && (
+                    <p className="text-sm font-sans text-foreground leading-relaxed">{termosTexto['workshop']}</p>
+                  )}
+                  <div className="border-t border-gold/20 pt-3 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide font-sans">Para prosseguir, marque que está ciente:</p>
+                    <label htmlFor="termos_w" className="flex items-start gap-3 cursor-pointer group p-2 rounded-lg hover:bg-primary/5 transition-colors">
+                      <Checkbox id="termos_w" checked={termosAceitos} onCheckedChange={v => setTermosAceitos(!!v)} className="mt-0.5 shrink-0" />
+                      <span className="text-sm font-sans text-foreground">Li, compreendi e aceito o regulamento do 9º F.A.D.D.A e todas as condições de participação nos Workshops.</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => setStep(2)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
+                <Button onClick={handleSubmit} disabled={loading || !canSubmit()} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">
+                  {loading ? 'Processando...' : 'Confirmar Inscrição'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ─── STEP 4: Resumo e Pagamento (Comp/Mostra) ─────────────────── */}
+        {step === 4 && tipoInscricao !== 'workshop' && (
+          <Card className="bg-card border-border">
+            <CardHeader><CardTitle className="font-serif text-foreground">4. Resumo e Pagamento</CardTitle></CardHeader>
+            <CardContent className="space-y-5">
+              {/* Summary */}
+              <div className="bg-muted p-4 rounded-lg space-y-2 font-sans text-sm">
+                <p className="font-semibold text-foreground mb-2">Resumo da Inscrição</p>
+                <div className="flex justify-between text-foreground"><span>Tipo:</span><span className="capitalize">{tipoInscricao}</span></div>
+                <div className="flex justify-between text-foreground"><span>Categoria:</span><span>{CATEGORIAS.find(c => c.value === categoria)?.label}</span></div>
+                <div className="flex justify-between text-foreground"><span>Modalidade:</span><span>{tipoInscricao === 'mostra' ? modalidadeMostra : modalidade}</span></div>
+                <div className="flex justify-between text-foreground"><span>Coreografia:</span><span>{tipoInscricao === 'mostra' ? nomeCoreografiaMostra : nomeCoreografia}</span></div>
+                {numIntegrantes > 1 && <div className="flex justify-between text-foreground"><span>Integrantes:</span><span>{numIntegrantes}</span></div>}
+                {participantes.length > 0 && (
+                  <div>
+                    <p className="text-primary font-medium mt-1">Participantes:</p>
+                    {participantes.map((p, i) => <p key={i} className="text-muted-foreground pl-2">• {p.nome} {p.cpf ? `(${p.cpf})` : ''}</p>)}
+                  </div>
+                )}
+                <div className="border-t border-border pt-2 mt-2">
+                  <div className="flex justify-between text-foreground"><span>Lote:</span><span>{tipoInscricao === 'mostra' ? loteAtualMostra?.nome : loteAtual?.nome || 'N/A'}</span></div>
+                  <div className="flex justify-between text-foreground"><span>Valor base:</span><span>R$ {precoBase.toFixed(2)}</span></div>
+                  {desconto > 0 && <div className="flex justify-between text-primary"><span>Desconto ({desconto}%):</span><span>- R$ {(precoBase - valorFinal).toFixed(2)}</span></div>}
+                  <div className="flex justify-between font-bold text-lg text-foreground mt-1"><span>Total:</span><span className="text-primary">R$ {valorFinal.toFixed(2)}</span></div>
+                </div>
+              </div>
+
+              {/* ── TERMOS destacados antes do pagamento ── */}
+              {tipoInscricao === 'competicao' && (
+                <div className="rounded-xl border-2 border-gold/40 bg-primary/5 overflow-hidden">
+                  <div className="flex items-center gap-2 bg-gradient-gold px-4 py-3">
+                    <span className="text-lg">📋</span>
+                    <p className="font-serif font-bold text-primary-foreground text-base">Regulamento — Competição</p>
+                  </div>
+                  <div className="px-4 pt-4 pb-3 space-y-3">
+                    {termosTexto['competicao'] && (
+                      <p className="text-sm font-sans text-foreground leading-relaxed">{termosTexto['competicao']}</p>
+                    )}
+                    <div className="border-t border-gold/20 pt-3 space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide font-sans mb-2">Confirme que está ciente:</p>
+                      <label htmlFor="t_atraso" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
+                        <Checkbox id="t_atraso" checked={termoAtraso} onCheckedChange={v => setTermoAtraso(!!v)} className="mt-0.5 shrink-0" />
+                        <span className="text-sm font-sans text-foreground">⏰ Estou ciente das <strong>regras de atraso</strong>: não haverá tolerância de atraso para a apresentação. Após chamada, o tempo esgota.</span>
+                      </label>
+                      <label htmlFor="t_musica" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
+                        <Checkbox id="t_musica" checked={termoMusica} onCheckedChange={v => setTermoMusica(!!v)} className="mt-0.5 shrink-0" />
+                        <span className="text-sm font-sans text-foreground">🎵 Estou ciente das <strong>regras de entrega de música</strong>: a música deve ser entregue no prazo, no formato exigido pelo regulamento.</span>
+                      </label>
+                      <label htmlFor="t_final_c" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
+                        <Checkbox id="t_final_c" checked={termosAceitos} onCheckedChange={v => setTermosAceitos(!!v)} className="mt-0.5 shrink-0" />
+                        <span className="text-sm font-sans text-foreground font-medium">✅ Li, compreendi e aceito o regulamento completo do 9º F.A.D.D.A.</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {tipoInscricao === 'mostra' && (
+                <div className="rounded-xl border-2 border-gold/40 bg-primary/5 overflow-hidden">
+                  <div className="flex items-center gap-2 bg-gradient-gold px-4 py-3">
+                    <span className="text-lg">📋</span>
+                    <p className="font-serif font-bold text-primary-foreground text-base">Regulamento — Mostra</p>
+                  </div>
+                  <div className="px-4 pt-4 pb-3 space-y-3">
+                    {termosTexto['mostra'] && (
+                      <p className="text-sm font-sans text-foreground leading-relaxed">{termosTexto['mostra']}</p>
+                    )}
+                    <div className="border-t border-gold/20 pt-3 space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide font-sans mb-2">Confirme que está ciente:</p>
+                      <label htmlFor="m_atraso" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
+                        <Checkbox id="m_atraso" checked={termoAtrasoM} onCheckedChange={v => setTermoAtrasoM(!!v)} className="mt-0.5 shrink-0" />
+                        <span className="text-sm font-sans text-foreground">⏰ Estou ciente das <strong>regras de atraso</strong>: não haverá tolerância de atraso para a apresentação. Após chamada, o tempo esgota.</span>
+                      </label>
+                      <label htmlFor="m_musica" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
+                        <Checkbox id="m_musica" checked={termoMusicaM} onCheckedChange={v => setTermoMusicaM(!!v)} className="mt-0.5 shrink-0" />
+                        <span className="text-sm font-sans text-foreground">🎵 Estou ciente das <strong>regras de entrega de música</strong>: a música deve ser entregue no prazo e no formato exigido.</span>
+                      </label>
+                      <label htmlFor="m_ensaio" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
+                        <Checkbox id="m_ensaio" checked={termoSemEnsaioM} onCheckedChange={v => setTermoSemEnsaioM(!!v)} className="mt-0.5 shrink-0" />
+                        <span className="text-sm font-sans text-foreground">🚫 Estou ciente que <strong>não há ensaio no local</strong>. Chego preparado(a) para a apresentação.</span>
+                      </label>
+                      <label htmlFor="t_final_m" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
+                        <Checkbox id="t_final_m" checked={termosAceitos} onCheckedChange={v => setTermosAceitos(!!v)} className="mt-0.5 shrink-0" />
+                        <span className="text-sm font-sans text-foreground font-medium">✅ Li, compreendi e aceito o regulamento completo do 9º F.A.D.D.A.</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Como soube */}
+              {comoSoubeOpcoes.length > 0 && (
+                <div>
+                  <Label className="text-foreground font-sans">Como soube do festival?</Label>
+                  <Select value={comoSoube} onValueChange={setComoSoube}>
+                    <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      {comoSoubeOpcoes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div>
+                <Label className="text-foreground font-sans">Observações (opcional)</Label>
+                <Textarea value={observacoes} onChange={e => setObservacoes(e.target.value)} className="bg-background border-border text-foreground" placeholder="Comentários, dúvidas..." />
+              </div>
+
+              <div>
+                <Label className="text-foreground font-sans">Método de Pagamento</Label>
+                <Select value={metodoPagamento} onValueChange={v => setMetodoPagamento(v as any)}>
+                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pix">PIX</SelectItem>
+                    <SelectItem value="cartao">Cartão (simulado)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {metodoPagamento === 'pix' && (
+                <div className="p-4 bg-muted rounded-lg text-center font-sans">
+                  <p className="text-sm text-muted-foreground mb-1">Chave PIX:</p>
+                  <p className="font-bold text-foreground text-lg">fadda@festival.com.br</p>
+                  <p className="text-xs text-muted-foreground mt-1">Envie o comprovante para confirmação</p>
+                </div>
+              )}
+
+              {/* Aceite final já embutido nos cards de termos acima */}
+
+              <div className="flex gap-3 pt-2">
                 <Button variant="outline" onClick={() => setStep(3)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
-                <Button onClick={handleSubmit} disabled={loading || !termosAceitos} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">
+                <Button onClick={handleSubmit} disabled={loading || !canSubmit()} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans shimmer">
                   {loading ? 'Processando...' : 'Confirmar Inscrição'}
                 </Button>
               </div>

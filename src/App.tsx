@@ -10,6 +10,7 @@ import Inscricao from "./pages/Inscricao.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import Admin from "./pages/Admin.tsx";
 import AdminConfig from "./pages/AdminConfig.tsx";
+import AdminIngressos from "./pages/AdminIngressos.tsx";
 import Ingressos from "./pages/Ingressos.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/config" element={<AdminConfig />} />
+            <Route path="/admin/ingressos" element={<AdminIngressos />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
