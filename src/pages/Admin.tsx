@@ -53,9 +53,27 @@ const Admin = () => {
       .from('profiles')
       .select('user_id, nome, email, cpf, telefone')
       .in('user_id', userIds);
+
+    // Fetch participantes for all inscricoes
+    const inscIds = inscData.map(i => i.id);
+    const { data: participantesData } = await supabase
+      .from('participantes')
+      .select('inscricao_id, nome, cpf')
+      .in('inscricao_id', inscIds);
+
+    const participantesMap = new Map<string, { nome: string; cpf: string | null }[]>();
+    participantesData?.forEach(p => {
+      const list = participantesMap.get(p.inscricao_id) || [];
+      list.push({ nome: p.nome, cpf: p.cpf });
+      participantesMap.set(p.inscricao_id, list);
+    });
     
     const profileMap = new Map(profilesData?.map(p => [p.user_id, p]) || []);
-    const data = inscData.map(i => ({ ...i, profiles: profileMap.get(i.user_id) || null }));
+    const data = inscData.map(i => ({
+      ...i,
+      profiles: profileMap.get(i.user_id) || null,
+      participantes_lista: participantesMap.get(i.id) || [],
+    }));
     if (data) setInscricoes(data);
     setLoading(false);
   };
