@@ -238,6 +238,14 @@ const Admin = () => {
                       <div>
                         <p className="font-medium text-foreground">{i.profiles?.nome || '-'}</p>
                         <p className="text-xs text-muted-foreground">{i.profiles?.email}</p>
+                        {i.participantes_lista?.length > 0 && (
+                          <div className="mt-1">
+                            <p className="text-xs text-primary font-medium">Participantes:</p>
+                            {i.participantes_lista.map((p: any, idx: number) => (
+                              <p key={idx} className="text-xs text-muted-foreground">{p.nome}{p.cpf ? ` (${p.cpf})` : ''}</p>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-foreground font-sans">{i.nome_coreografia}</TableCell>
