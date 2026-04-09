@@ -111,13 +111,14 @@ const Admin = () => {
   });
 
   const exportCSV = () => {
-    const headers = ['Nome', 'Email', 'CPF', 'Telefone', 'Categoria', 'Modalidade', 'Coreografia', 'Status', 'Período', 'Valor', 'Data'];
+    const headers = ['Nome', 'Email', 'CPF', 'Telefone', 'Categoria', 'Modalidade', 'Coreografia', 'Status', 'Período', 'Valor', 'Data', 'Participantes'];
     const rows = filteredInscricoes.map(i => [
       i.profiles?.nome || '', i.profiles?.email || '', i.profiles?.cpf || '', i.profiles?.telefone || '',
       i.categoria, i.modalidade, i.nome_coreografia, i.status, i.periodo,
       i.valor_final, new Date(i.created_at).toLocaleDateString('pt-BR'),
+      (i.participantes_lista || []).map((p: any) => `${p.nome}(${p.cpf || ''})`).join('; '),
     ]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const csv = [headers, ...rows].map(r => r.map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
