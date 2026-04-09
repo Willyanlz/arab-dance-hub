@@ -64,7 +64,8 @@ const Login = () => {
             </div>
             <div>
               <Label className="text-foreground font-sans">Senha</Label>
-              <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} className="bg-background border-border text-foreground" />
+              <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={4} className="bg-background border-border text-foreground" />
+              {isSignUp && <p className="text-xs text-muted-foreground font-sans mt-1">Mínimo 4 caracteres</p>}
             </div>
             <Button type="submit" disabled={loading} className="w-full bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">
               {loading ? 'Aguarde...' : isSignUp ? 'Criar Conta' : 'Entrar'}

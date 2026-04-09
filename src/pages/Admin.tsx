@@ -124,9 +124,14 @@ const Admin = () => {
       <main className="max-w-7xl mx-auto py-8 px-4">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-serif font-bold text-foreground">Gerenciamento de Inscrições</h1>
-          <Button onClick={exportCSV} variant="outline" className="border-border text-foreground font-sans">
-            <Download className="w-4 h-4 mr-2" /> Exportar CSV
-          </Button>
+          <div className="flex gap-3">
+            <Button asChild variant="outline" className="border-border text-foreground font-sans">
+              <Link to="/admin/config">⚙️ Configurações</Link>
+            </Button>
+            <Button onClick={exportCSV} variant="outline" className="border-border text-foreground font-sans">
+              <Download className="w-4 h-4 mr-2" /> Exportar CSV
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
