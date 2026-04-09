@@ -53,9 +53,27 @@ const Admin = () => {
       .from('profiles')
       .select('user_id, nome, email, cpf, telefone')
       .in('user_id', userIds);
+
+    // Fetch participantes for all inscricoes
+    const inscIds = inscData.map(i => i.id);
+    const { data: participantesData } = await supabase
+      .from('participantes')
+      .select('inscricao_id, nome, cpf')
+      .in('inscricao_id', inscIds);
+
+    const participantesMap = new Map<string, { nome: string; cpf: string | null }[]>();
+    participantesData?.forEach(p => {
+      const list = participantesMap.get(p.inscricao_id) || [];
+      list.push({ nome: p.nome, cpf: p.cpf });
+      participantesMap.set(p.inscricao_id, list);
+    });
     
     const profileMap = new Map(profilesData?.map(p => [p.user_id, p]) || []);
-    const data = inscData.map(i => ({ ...i, profiles: profileMap.get(i.user_id) || null }));
+    const data = inscData.map(i => ({
+      ...i,
+      profiles: profileMap.get(i.user_id) || null,
+      participantes_lista: participantesMap.get(i.id) || [],
+    }));
     if (data) setInscricoes(data);
     setLoading(false);
   };
@@ -93,13 +111,14 @@ const Admin = () => {
   });
 
   const exportCSV = () => {
-    const headers = ['Nome', 'Email', 'CPF', 'Telefone', 'Categoria', 'Modalidade', 'Coreografia', 'Status', 'Período', 'Valor', 'Data'];
+    const headers = ['Nome', 'Email', 'CPF', 'Telefone', 'Categoria', 'Modalidade', 'Coreografia', 'Status', 'Período', 'Valor', 'Data', 'Participantes'];
     const rows = filteredInscricoes.map(i => [
       i.profiles?.nome || '', i.profiles?.email || '', i.profiles?.cpf || '', i.profiles?.telefone || '',
       i.categoria, i.modalidade, i.nome_coreografia, i.status, i.periodo,
       i.valor_final, new Date(i.created_at).toLocaleDateString('pt-BR'),
+      (i.participantes_lista || []).map((p: any) => `${p.nome}(${p.cpf || ''})`).join('; '),
     ]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const csv = [headers, ...rows].map(r => r.map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -124,9 +143,14 @@ const Admin = () => {
       <main className="max-w-7xl mx-auto py-8 px-4">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-serif font-bold text-foreground">Gerenciamento de Inscrições</h1>
-          <Button onClick={exportCSV} variant="outline" className="border-border text-foreground font-sans">
-            <Download className="w-4 h-4 mr-2" /> Exportar CSV
-          </Button>
+          <div className="flex gap-3">
+            <Button asChild variant="outline" className="border-border text-foreground font-sans">
+              <Link to="/admin/config">⚙️ Configurações</Link>
+            </Button>
+            <Button onClick={exportCSV} variant="outline" className="border-border text-foreground font-sans">
+              <Download className="w-4 h-4 mr-2" /> Exportar CSV
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -214,6 +238,14 @@ const Admin = () => {
                       <div>
                         <p className="font-medium text-foreground">{i.profiles?.nome || '-'}</p>
                         <p className="text-xs text-muted-foreground">{i.profiles?.email}</p>
+                        {i.participantes_lista?.length > 0 && (
+                          <div className="mt-1">
+                            <p className="text-xs text-primary font-medium">Participantes:</p>
+                            {i.participantes_lista.map((p: any, idx: number) => (
+                              <p key={idx} className="text-xs text-muted-foreground">{p.nome}{p.cpf ? ` (${p.cpf})` : ''}</p>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-foreground font-sans">{i.nome_coreografia}</TableCell>
