@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      ingressos_vendidos: {
+        Row: {
+          cpf: string
+          created_at: string
+          email: string
+          id: string
+          nome_comprador: string
+          quantidade: number
+          status: string
+          telefone: string | null
+          tipo_ingresso_id: string
+          updated_at: string
+          user_id: string | null
+          valor_total: number
+        }
+        Insert: {
+          cpf: string
+          created_at?: string
+          email: string
+          id?: string
+          nome_comprador: string
+          quantidade?: number
+          status?: string
+          telefone?: string | null
+          tipo_ingresso_id: string
+          updated_at?: string
+          user_id?: string | null
+          valor_total: number
+        }
+        Update: {
+          cpf?: string
+          created_at?: string
+          email?: string
+          id?: string
+          nome_comprador?: string
+          quantidade?: number
+          status?: string
+          telefone?: string | null
+          tipo_ingresso_id?: string
+          updated_at?: string
+          user_id?: string | null
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingressos_vendidos_tipo_ingresso_id_fkey"
+            columns: ["tipo_ingresso_id"]
+            isOneToOne: false
+            referencedRelation: "tipos_ingresso"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inscricoes: {
         Row: {
           categoria: Database["public"]["Enums"]["categoria_tipo"]
@@ -242,6 +295,69 @@ export type Database = {
           telefone?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      site_config: {
+        Row: {
+          chave: string
+          created_at: string
+          descricao: string | null
+          id: string
+          updated_at: string
+          valor: Json
+        }
+        Insert: {
+          chave: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          updated_at?: string
+          valor?: Json
+        }
+        Update: {
+          chave?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          updated_at?: string
+          valor?: Json
+        }
+        Relationships: []
+      }
+      tipos_ingresso: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          preco: number
+          quantidade_total: number
+          quantidade_vendida: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          preco?: number
+          quantidade_total?: number
+          quantidade_vendida?: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          preco?: number
+          quantidade_total?: number
+          quantidade_vendida?: number
+          updated_at?: string
         }
         Relationships: []
       }
