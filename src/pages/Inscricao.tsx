@@ -836,23 +836,10 @@ const Inscricao = () => {
                     {termosTexto['mostra'] && (
                       <p className="text-sm font-sans text-foreground leading-relaxed">{termosTexto['mostra']}</p>
                     )}
-                    <div className="border-t border-gold/20 pt-3 space-y-1">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide font-sans mb-2">Confirme que está ciente:</p>
-                      <label htmlFor="m_atraso" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
-                        <Checkbox id="m_atraso" checked={termoAtrasoM} onCheckedChange={v => setTermoAtrasoM(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground">⏰ Estou ciente das <strong>regras de atraso</strong>: não haverá tolerância de atraso para a apresentação. Após chamada, o tempo esgota.</span>
-                      </label>
-                      <label htmlFor="m_musica" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
-                        <Checkbox id="m_musica" checked={termoMusicaM} onCheckedChange={v => setTermoMusicaM(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground">🎵 Estou ciente das <strong>regras de entrega de música</strong>: a música deve ser entregue no prazo e no formato exigido.</span>
-                      </label>
-                      <label htmlFor="m_ensaio" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
-                        <Checkbox id="m_ensaio" checked={termoSemEnsaioM} onCheckedChange={v => setTermoSemEnsaioM(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground">🚫 Estou ciente que <strong>não há ensaio no local</strong>. Chego preparado(a) para a apresentação.</span>
-                      </label>
+                    <div className="border-t border-gold/20 pt-3">
                       <label htmlFor="t_final_m" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
                         <Checkbox id="t_final_m" checked={termosAceitos} onCheckedChange={v => setTermosAceitos(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground font-medium">✅ Li, compreendi e aceito o regulamento completo do 9º F.A.D.D.A.</span>
+                        <span className="text-sm font-sans text-foreground font-medium">✅ Declaro que li e aceitei os termos e regulamento do 9º F.A.D.D.A.</span>
                       </label>
                     </div>
                   </div>
