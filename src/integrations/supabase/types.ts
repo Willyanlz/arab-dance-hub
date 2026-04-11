@@ -7,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -18,7 +20,6 @@ export type Database = {
           created_at: string
           email: string
           id: string
-          lote_ingresso_id: string | null
           nome_comprador: string
           quantidade: number
           status: string
@@ -33,7 +34,6 @@ export type Database = {
           created_at?: string
           email: string
           id?: string
-          lote_ingresso_id?: string | null
           nome_comprador: string
           quantidade?: number
           status?: string
@@ -48,7 +48,6 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
-          lote_ingresso_id?: string | null
           nome_comprador?: string
           quantidade?: number
           status?: string
@@ -68,13 +67,49 @@ export type Database = {
           },
         ]
       }
+      inscricao_workshops: {
+        Row: {
+          created_at: string
+          id: string
+          inscricao_id: string
+          workshop_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inscricao_id: string
+          workshop_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inscricao_id?: string
+          workshop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inscricao_workshops_inscricao_id_fkey"
+            columns: ["inscricao_id"]
+            isOneToOne: false
+            referencedRelation: "inscricoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inscricao_workshops_workshop_id_fkey"
+            columns: ["workshop_id"]
+            isOneToOne: false
+            referencedRelation: "workshops_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inscricoes: {
         Row: {
           categoria: Database["public"]["Enums"]["categoria_tipo"]
           como_soube: string | null
           created_at: string
           desconto_percentual: number | null
-          extra_harem: boolean | null
+          faixa_etaria: string | null
           id: string
           lote_id: string | null
           lote_mostra_id: string | null
@@ -82,12 +117,10 @@ export type Database = {
           modalidade: string
           nome_artistico: string | null
           nome_coreografia: string
-          faixa_etaria: string | null
-          modalidade_id: string | null
-          lote_ingresso_id: string | null
           nome_escola: string | null
           num_integrantes: number | null
           observacoes: string | null
+          participa_harem: boolean | null
           periodo: Database["public"]["Enums"]["periodo_tipo"]
           preferencia_periodo: string | null
           professora: string | null
@@ -97,9 +130,9 @@ export type Database = {
           termos_musica: boolean | null
           termos_sem_ensaio: boolean | null
           tipo_compra_workshop: string | null
-          tipo_inscricao: string
+          tipo_inscricao: string | null
           tipo_musica: Database["public"]["Enums"]["musica_tipo"]
-          tipo_participacao: string | null
+          tipo_participacao_mostra: string | null
           updated_at: string
           user_id: string
           valor_final: number | null
@@ -110,7 +143,7 @@ export type Database = {
           como_soube?: string | null
           created_at?: string
           desconto_percentual?: number | null
-          extra_harem?: boolean | null
+          faixa_etaria?: string | null
           id?: string
           lote_id?: string | null
           lote_mostra_id?: string | null
@@ -118,12 +151,10 @@ export type Database = {
           modalidade: string
           nome_artistico?: string | null
           nome_coreografia: string
-          faixa_etaria?: string | null
-          modalidade_id?: string | null
-          lote_ingresso_id?: string | null
           nome_escola?: string | null
           num_integrantes?: number | null
           observacoes?: string | null
+          participa_harem?: boolean | null
           periodo?: Database["public"]["Enums"]["periodo_tipo"]
           preferencia_periodo?: string | null
           professora?: string | null
@@ -133,9 +164,9 @@ export type Database = {
           termos_musica?: boolean | null
           termos_sem_ensaio?: boolean | null
           tipo_compra_workshop?: string | null
-          tipo_inscricao?: string
+          tipo_inscricao?: string | null
           tipo_musica?: Database["public"]["Enums"]["musica_tipo"]
-          tipo_participacao?: string | null
+          tipo_participacao_mostra?: string | null
           updated_at?: string
           user_id: string
           valor_final?: number | null
@@ -146,7 +177,7 @@ export type Database = {
           como_soube?: string | null
           created_at?: string
           desconto_percentual?: number | null
-          extra_harem?: boolean | null
+          faixa_etaria?: string | null
           id?: string
           lote_id?: string | null
           lote_mostra_id?: string | null
@@ -154,12 +185,10 @@ export type Database = {
           modalidade?: string
           nome_artistico?: string | null
           nome_coreografia?: string
-          faixa_etaria?: string | null
-          modalidade_id?: string | null
-          lote_ingresso_id?: string | null
           nome_escola?: string | null
           num_integrantes?: number | null
           observacoes?: string | null
+          participa_harem?: boolean | null
           periodo?: Database["public"]["Enums"]["periodo_tipo"]
           preferencia_periodo?: string | null
           professora?: string | null
@@ -169,9 +198,9 @@ export type Database = {
           termos_musica?: boolean | null
           termos_sem_ensaio?: boolean | null
           tipo_compra_workshop?: string | null
-          tipo_inscricao?: string
+          tipo_inscricao?: string | null
           tipo_musica?: Database["public"]["Enums"]["musica_tipo"]
-          tipo_participacao?: string | null
+          tipo_participacao_mostra?: string | null
           updated_at?: string
           user_id?: string
           valor_final?: number | null
@@ -197,42 +226,6 @@ export type Database = {
             columns: ["lote_workshop_id"]
             isOneToOne: false
             referencedRelation: "lotes_workshop"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      inscricao_workshops: {
-        Row: {
-          id: string
-          inscricao_id: string
-          workshop_id: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          inscricao_id: string
-          workshop_id: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          inscricao_id?: string
-          workshop_id?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inscricao_workshops_inscricao_id_fkey"
-            columns: ["inscricao_id"]
-            isOneToOne: false
-            referencedRelation: "inscricoes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inscricao_workshops_workshop_id_fkey"
-            columns: ["workshop_id"]
-            isOneToOne: false
-            referencedRelation: "workshops_config"
             referencedColumns: ["id"]
           },
         ]
@@ -273,6 +266,36 @@ export type Database = {
           preco_dupla_trio?: number
           preco_grupo_por_integrante?: number
           preco_solo?: number
+        }
+        Relationships: []
+      }
+      lotes_ingresso: {
+        Row: {
+          ativo: boolean | null
+          created_at: string
+          data_fim: string
+          data_inicio: string
+          id: string
+          nome: string
+          numero: number
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string
+          data_fim: string
+          data_inicio: string
+          id?: string
+          nome: string
+          numero: number
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string
+          data_fim?: string
+          data_inicio?: string
+          id?: string
+          nome?: string
+          numero?: number
         }
         Relationships: []
       }
@@ -339,12 +362,12 @@ export type Database = {
           id?: string
           nome: string
           numero: number
-          preco_1_aula?: number
-          preco_2_aulas?: number
-          preco_3_aulas?: number
-          preco_4_aulas?: number
-          preco_5_aulas?: number
-          preco_pacote_completo?: number
+          preco_1_aula: number
+          preco_2_aulas: number
+          preco_3_aulas: number
+          preco_4_aulas: number
+          preco_5_aulas: number
+          preco_pacote_completo: number
         }
         Update: {
           ativo?: boolean | null
@@ -360,6 +383,42 @@ export type Database = {
           preco_4_aulas?: number
           preco_5_aulas?: number
           preco_pacote_completo?: number
+        }
+        Relationships: []
+      }
+      modalidades_config: {
+        Row: {
+          ativo: boolean | null
+          created_at: string
+          faixa_etaria: string | null
+          horario: string | null
+          id: string
+          nome: string
+          ordem: number | null
+          periodo: string
+          tipo: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string
+          faixa_etaria?: string | null
+          horario?: string | null
+          id?: string
+          nome: string
+          ordem?: number | null
+          periodo?: string
+          tipo?: string
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string
+          faixa_etaria?: string | null
+          horario?: string | null
+          id?: string
+          nome?: string
+          ordem?: number | null
+          periodo?: string
+          tipo?: string
         }
         Relationships: []
       }
@@ -510,24 +569,24 @@ export type Database = {
       }
       termos_config: {
         Row: {
+          conteudo: string
+          created_at: string
           id: string
           tipo: string
-          titulo: string | null
-          conteudo: string
           updated_at: string
         }
         Insert: {
+          conteudo?: string
+          created_at?: string
           id?: string
           tipo: string
-          titulo?: string | null
-          conteudo: string
           updated_at?: string
         }
         Update: {
+          conteudo?: string
+          created_at?: string
           id?: string
           tipo?: string
-          titulo?: string | null
-          conteudo?: string
           updated_at?: string
         }
         Relationships: []
@@ -538,6 +597,7 @@ export type Database = {
           created_at: string
           descricao: string | null
           id: string
+          lote_ingresso_id: string | null
           nome: string
           preco: number
           quantidade_total: number
@@ -549,6 +609,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
+          lote_ingresso_id?: string | null
           nome: string
           preco?: number
           quantidade_total?: number
@@ -560,106 +621,22 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
+          lote_ingresso_id?: string | null
           nome?: string
           preco?: number
           quantidade_total?: number
           quantidade_vendida?: number
           updated_at?: string
         }
-        Relationships: []
-      }
-      lotes_ingresso: {
-        Row: {
-          ativo: boolean | null
-          created_at: string
-          data_dobro: string | null
-          data_fim: string
-          data_inicio: string
-          data_limite: string | null
-          descricao: string | null
-          id: string
-          nome: string
-          numero: number
-          preco: number
-          quantidade_total: number
-          quantidade_vendida: number
-        }
-        Insert: {
-          ativo?: boolean | null
-          created_at?: string
-          data_dobro?: string | null
-          data_fim: string
-          data_inicio: string
-          data_limite?: string | null
-          descricao?: string | null
-          id?: string
-          nome: string
-          numero: number
-          preco: number
-          quantidade_total?: number
-          quantidade_vendida?: number
-        }
-        Update: {
-          ativo?: boolean | null
-          created_at?: string
-          data_dobro?: string | null
-          data_fim?: string
-          data_inicio?: string
-          data_limite?: string | null
-          descricao?: string | null
-          id?: string
-          nome?: string
-          numero?: number
-          preco?: number
-          quantidade_total?: number
-          quantidade_vendida?: number
-        }
-        Relationships: []
-      }
-      modalidades_config: {
-        Row: {
-          ativo: boolean | null
-          created_at: string
-          faixa_etaria_label: string | null
-          faixa_etaria_max: number | null
-          faixa_etaria_min: number | null
-          horario_fim: string | null
-          horario_inicio: string | null
-          id: string
-          nome: string
-          ordem: number | null
-          periodo: string
-          tipo: string
-        }
-        Insert: {
-          ativo?: boolean | null
-          created_at?: string
-          faixa_etaria_label?: string | null
-          faixa_etaria_max?: number | null
-          faixa_etaria_min?: number | null
-          horario_fim?: string | null
-          horario_inicio?: string | null
-          id?: string
-          nome: string
-          ordem?: number | null
-          periodo?: string
-          tipo: string
-        }
-        Update: {
-          ativo?: boolean | null
-          created_at?: string
-          faixa_etaria_label?: string | null
-          faixa_etaria_max?: number | null
-          faixa_etaria_min?: number | null
-          horario_fim?: string | null
-          horario_inicio?: string | null
-          id?: string
-          nome?: string
-          ordem?: number | null
-          periodo?: string
-          tipo?: string
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tipos_ingresso_lote_ingresso_id_fkey"
+            columns: ["lote_ingresso_id"]
+            isOneToOne: false
+            referencedRelation: "lotes_ingresso"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -683,35 +660,29 @@ export type Database = {
         Row: {
           ativo: boolean | null
           created_at: string
-          descricao: string | null
           horario: string | null
           id: string
           nome: string
           periodo: string | null
           professor: string | null
-          updated_at: string
         }
         Insert: {
           ativo?: boolean | null
           created_at?: string
-          descricao?: string | null
           horario?: string | null
           id?: string
           nome: string
           periodo?: string | null
           professor?: string | null
-          updated_at?: string
         }
         Update: {
           ativo?: boolean | null
           created_at?: string
-          descricao?: string | null
           horario?: string | null
           id?: string
           nome?: string
           periodo?: string | null
           professor?: string | null
-          updated_at?: string
         }
         Relationships: []
       }
@@ -722,8 +693,8 @@ export type Database = {
     Functions: {
       has_role: {
         Args: {
-          _user_id: string
           _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
         }
         Returns: boolean
       }
@@ -743,6 +714,7 @@ export type Database = {
 }
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
@@ -839,6 +811,23 @@ export type Enums<
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {

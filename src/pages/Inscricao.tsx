@@ -91,12 +91,12 @@ const Inscricao = () => {
   const [loteAtualWorkshop, setLoteAtualWorkshop] = useState<LoteWorkshop | null>(null);
 
   // ── Config ────────────────────────────────────────────────────────────────
-  const [modalidadesComp, setModalidadesComp] = useState<string[]>([]);
-  const [modalidadesMostra, setModalidadesMostra] = useState<string[]>([]);
+  const [modalidadesConfig, setModalidadesConfig] = useState<any[]>([]);
   const [comoSoubeOpcoes, setComoSoubeOpcoes] = useState<string[]>([]);
   const [workshopsDisponiveis, setWorkshopsDisponiveis] = useState<WorkshopItem[]>([]);
   const [termosTexto, setTermosTexto] = useState<Record<string, string>>({});
   const [inscricoesAbertas, setInscricoesAbertas] = useState<Record<string, boolean>>({});
+  const [faixaEtaria, setFaixaEtaria] = useState('');
 
   // ── Profile fields ────────────────────────────────────────────────────────
   const [cpf, setCpf] = useState('');
@@ -174,30 +174,31 @@ const Inscricao = () => {
         { data: workshopsData },
         { data: termosData },
         { data: profileData },
+        { data: modalidadesData },
       ] = await Promise.all([
         supabase.from('lotes').select('*').order('numero'),
-        supabase.from('lotes_mostra').select('*').order('numero'),
-        supabase.from('lotes_workshop').select('*').order('numero'),
+        (supabase.from('lotes_mostra') as any).select('*').order('numero'),
+        (supabase.from('lotes_workshop') as any).select('*').order('numero'),
         supabase.from('site_config').select('chave,valor'),
-        supabase.from('workshops_config').select('*').eq('ativo', true).order('nome'),
-        supabase.from('termos_config').select('tipo,conteudo'),
+        (supabase.from('workshops_config') as any).select('*').eq('ativo', true).order('nome'),
+        (supabase.from('termos_config') as any).select('tipo,conteudo'),
         supabase.from('profiles').select('cpf,telefone,is_aluna_jalilete,participante_anterior').eq('user_id', user.id).single(),
+        (supabase.from('modalidades_config') as any).select('*').eq('ativo', true).order('ordem'),
       ]);
 
       if (lotesData) { setLotes(lotesData as any); setLoteAtual(getLoteAtual(lotesData as any)); }
       if (lotesMostraData) { setLotesMostra(lotesMostraData as any); setLoteAtualMostra(getLoteAtual(lotesMostraData as any)); }
       if (lotesWorkshopData) { setLotesWorkshop(lotesWorkshopData as any); setLoteAtualWorkshop(getLoteAtual(lotesWorkshopData as any)); }
       if (workshopsData) setWorkshopsDisponiveis(workshopsData as any);
+      if (modalidadesData) setModalidadesConfig(modalidadesData);
       if (termosData) {
         const map: Record<string, string> = {};
-        termosData.forEach((t: any) => { map[t.tipo] = t.conteudo; });
+        (termosData as any[]).forEach((t: any) => { map[t.tipo] = t.conteudo; });
         setTermosTexto(map);
       }
       if (configData) {
         const map: Record<string, any> = {};
         configData.forEach((c: any) => { map[c.chave] = c.valor; });
-        setModalidadesComp(Array.isArray(map.modalidades_competicao) ? map.modalidades_competicao : []);
-        setModalidadesMostra(Array.isArray(map.modalidades_mostra) ? map.modalidades_mostra : []);
         setComoSoubeOpcoes(Array.isArray(map.como_soube_opcoes) ? map.como_soube_opcoes : []);
         setInscricoesAbertas({
           competicao: map.inscricoes_abertas_competicao !== false,
@@ -215,6 +216,10 @@ const Inscricao = () => {
     };
     load();
   }, [user]);
+
+  // Derived: modalidades filtered by tipo and periodo
+  const modalidadesComp = modalidadesConfig.filter(m => m.tipo === 'competicao' && (periodo === 'nao_competir' || m.periodo === periodo));
+  const modalidadesMostra = modalidadesConfig.filter(m => m.tipo === 'mostra' && m.periodo === periodoMostra);
 
   // ── Participant helpers ───────────────────────────────────────────────────
   const addParticipante = () => setParticipantes([...participantes, { nome: '', cpf: '' }]);
@@ -253,6 +258,7 @@ const Inscricao = () => {
         extra_harem: extraHarem,
         como_soube: comoSoube || null,
         observacoes: observacoes || null,
+        faixa_etaria: faixaEtaria || null,
       };
 
       let inscData: Record<string, any> = baseData;
@@ -294,7 +300,7 @@ const Inscricao = () => {
         };
       }
 
-      const { data: insc, error: inscError } = await supabase.from('inscricoes').insert(inscData).select().single();
+      const { data: insc, error: inscError } = await supabase.from('inscricoes').insert(inscData as any).select().single();
       if (inscError) throw inscError;
 
       // Participantes
@@ -334,10 +340,7 @@ const Inscricao = () => {
   };
 
   const canSubmit = () => {
-    if (!termosAceitos) return false;
-    if (tipoInscricao === 'competicao') return termoAtraso && termoMusica;
-    if (tipoInscricao === 'mostra') return termoAtrasoM && termoMusicaM && termoSemEnsaioM;
-    return true;
+    return termosAceitos;
   };
 
   // ── Render loading ────────────────────────────────────────────────────────
@@ -457,12 +460,17 @@ const Inscricao = () => {
               </div>
               <div>
                 <Label className="text-foreground font-sans">Modalidade *</Label>
-                <Select value={modalidade} onValueChange={setModalidade}>
+                <Select value={modalidade} onValueChange={v => { setModalidade(v); const m = modalidadesComp.find(x => x.nome === v); if (m?.faixa_etaria) setFaixaEtaria(m.faixa_etaria); }}>
                   <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>
-                    {modalidadesComp.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    {modalidadesComp.map(m => <SelectItem key={m.id} value={m.nome}>{m.nome} {m.horario ? `· ${m.horario}` : ''} {m.faixa_etaria ? `(${m.faixa_etaria})` : ''}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {modalidadesComp.length === 0 && <p className="text-xs text-muted-foreground mt-1 font-sans">Selecione o período acima para ver as modalidades disponíveis.</p>}
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">Faixa Etária</Label>
+                <Input value={faixaEtaria} onChange={e => setFaixaEtaria(e.target.value)} placeholder="Ex: 12 a 17 anos" className="bg-background border-border text-foreground" />
               </div>
               <div>
                 <Label className="text-foreground font-sans">Categoria *</Label>
@@ -531,12 +539,17 @@ const Inscricao = () => {
               </div>
               <div>
                 <Label className="text-foreground font-sans">Modalidade de Mostra *</Label>
-                <Select value={modalidadeMostra} onValueChange={setModalidadeMostra}>
+                <Select value={modalidadeMostra} onValueChange={v => { setModalidadeMostra(v); const m = modalidadesMostra.find(x => x.nome === v); if (m?.faixa_etaria) setFaixaEtaria(m.faixa_etaria); }}>
                   <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>
-                    {modalidadesMostra.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    {modalidadesMostra.map(m => <SelectItem key={m.id} value={m.nome}>{m.nome} {m.horario ? `· ${m.horario}` : ''} {m.faixa_etaria ? `(${m.faixa_etaria})` : ''}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {modalidadesMostra.length === 0 && <p className="text-xs text-muted-foreground mt-1 font-sans">Selecione o período acima para ver as modalidades disponíveis.</p>}
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">Faixa Etária</Label>
+                <Input value={faixaEtaria} onChange={e => setFaixaEtaria(e.target.value)} placeholder="Ex: 12 a 17 anos" className="bg-background border-border text-foreground" />
               </div>
               <div>
                 <Label className="text-foreground font-sans">Nome da Coreografia *</Label>
@@ -802,21 +815,12 @@ const Inscricao = () => {
                   </div>
                   <div className="px-4 pt-4 pb-3 space-y-3">
                     {termosTexto['competicao'] && (
-                      <p className="text-sm font-sans text-foreground leading-relaxed">{termosTexto['competicao']}</p>
+                      <div className="max-h-48 overflow-y-auto text-sm font-sans text-foreground leading-relaxed whitespace-pre-line">{termosTexto['competicao']}</div>
                     )}
-                    <div className="border-t border-gold/20 pt-3 space-y-1">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide font-sans mb-2">Confirme que está ciente:</p>
-                      <label htmlFor="t_atraso" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
-                        <Checkbox id="t_atraso" checked={termoAtraso} onCheckedChange={v => setTermoAtraso(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground">⏰ Estou ciente das <strong>regras de atraso</strong>: não haverá tolerância de atraso para a apresentação. Após chamada, o tempo esgota.</span>
-                      </label>
-                      <label htmlFor="t_musica" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
-                        <Checkbox id="t_musica" checked={termoMusica} onCheckedChange={v => setTermoMusica(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground">🎵 Estou ciente das <strong>regras de entrega de música</strong>: a música deve ser entregue no prazo, no formato exigido pelo regulamento.</span>
-                      </label>
+                    <div className="border-t border-gold/20 pt-3">
                       <label htmlFor="t_final_c" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
                         <Checkbox id="t_final_c" checked={termosAceitos} onCheckedChange={v => setTermosAceitos(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground font-medium">✅ Li, compreendi e aceito o regulamento completo do 9º F.A.D.D.A.</span>
+                        <span className="text-sm font-sans text-foreground font-medium">✅ Declaro que li e aceitei os termos e regulamento do 9º F.A.D.D.A.</span>
                       </label>
                     </div>
                   </div>
@@ -832,23 +836,10 @@ const Inscricao = () => {
                     {termosTexto['mostra'] && (
                       <p className="text-sm font-sans text-foreground leading-relaxed">{termosTexto['mostra']}</p>
                     )}
-                    <div className="border-t border-gold/20 pt-3 space-y-1">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide font-sans mb-2">Confirme que está ciente:</p>
-                      <label htmlFor="m_atraso" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
-                        <Checkbox id="m_atraso" checked={termoAtrasoM} onCheckedChange={v => setTermoAtrasoM(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground">⏰ Estou ciente das <strong>regras de atraso</strong>: não haverá tolerância de atraso para a apresentação. Após chamada, o tempo esgota.</span>
-                      </label>
-                      <label htmlFor="m_musica" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
-                        <Checkbox id="m_musica" checked={termoMusicaM} onCheckedChange={v => setTermoMusicaM(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground">🎵 Estou ciente das <strong>regras de entrega de música</strong>: a música deve ser entregue no prazo e no formato exigido.</span>
-                      </label>
-                      <label htmlFor="m_ensaio" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
-                        <Checkbox id="m_ensaio" checked={termoSemEnsaioM} onCheckedChange={v => setTermoSemEnsaioM(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground">🚫 Estou ciente que <strong>não há ensaio no local</strong>. Chego preparado(a) para a apresentação.</span>
-                      </label>
+                    <div className="border-t border-gold/20 pt-3">
                       <label htmlFor="t_final_m" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
                         <Checkbox id="t_final_m" checked={termosAceitos} onCheckedChange={v => setTermosAceitos(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground font-medium">✅ Li, compreendi e aceito o regulamento completo do 9º F.A.D.D.A.</span>
+                        <span className="text-sm font-sans text-foreground font-medium">✅ Declaro que li e aceitei os termos e regulamento do 9º F.A.D.D.A.</span>
                       </label>
                     </div>
                   </div>
