@@ -258,6 +258,7 @@ const Inscricao = () => {
         extra_harem: extraHarem,
         como_soube: comoSoube || null,
         observacoes: observacoes || null,
+        faixa_etaria: faixaEtaria || null,
       };
 
       let inscData: Record<string, any> = baseData;
