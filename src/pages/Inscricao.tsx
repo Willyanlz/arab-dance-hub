@@ -294,7 +294,7 @@ const Inscricao = () => {
         };
       }
 
-      const { data: insc, error: inscError } = await supabase.from('inscricoes').insert(inscData).select().single();
+      const { data: insc, error: inscError } = await supabase.from('inscricoes').insert(inscData as any).select().single();
       if (inscError) throw inscError;
 
       // Participantes
