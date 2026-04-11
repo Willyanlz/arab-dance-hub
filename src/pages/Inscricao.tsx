@@ -459,12 +459,17 @@ const Inscricao = () => {
               </div>
               <div>
                 <Label className="text-foreground font-sans">Modalidade *</Label>
-                <Select value={modalidade} onValueChange={setModalidade}>
+                <Select value={modalidade} onValueChange={v => { setModalidade(v); const m = modalidadesComp.find(x => x.nome === v); if (m?.faixa_etaria) setFaixaEtaria(m.faixa_etaria); }}>
                   <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>
-                    {modalidadesComp.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    {modalidadesComp.map(m => <SelectItem key={m.id} value={m.nome}>{m.nome} {m.horario ? `· ${m.horario}` : ''} {m.faixa_etaria ? `(${m.faixa_etaria})` : ''}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {modalidadesComp.length === 0 && <p className="text-xs text-muted-foreground mt-1 font-sans">Selecione o período acima para ver as modalidades disponíveis.</p>}
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">Faixa Etária</Label>
+                <Input value={faixaEtaria} onChange={e => setFaixaEtaria(e.target.value)} placeholder="Ex: 12 a 17 anos" className="bg-background border-border text-foreground" />
               </div>
               <div>
                 <Label className="text-foreground font-sans">Categoria *</Label>
