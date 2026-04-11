@@ -815,21 +815,12 @@ const Inscricao = () => {
                   </div>
                   <div className="px-4 pt-4 pb-3 space-y-3">
                     {termosTexto['competicao'] && (
-                      <p className="text-sm font-sans text-foreground leading-relaxed">{termosTexto['competicao']}</p>
+                      <div className="max-h-48 overflow-y-auto text-sm font-sans text-foreground leading-relaxed whitespace-pre-line">{termosTexto['competicao']}</div>
                     )}
-                    <div className="border-t border-gold/20 pt-3 space-y-1">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide font-sans mb-2">Confirme que está ciente:</p>
-                      <label htmlFor="t_atraso" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
-                        <Checkbox id="t_atraso" checked={termoAtraso} onCheckedChange={v => setTermoAtraso(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground">⏰ Estou ciente das <strong>regras de atraso</strong>: não haverá tolerância de atraso para a apresentação. Após chamada, o tempo esgota.</span>
-                      </label>
-                      <label htmlFor="t_musica" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
-                        <Checkbox id="t_musica" checked={termoMusica} onCheckedChange={v => setTermoMusica(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground">🎵 Estou ciente das <strong>regras de entrega de música</strong>: a música deve ser entregue no prazo, no formato exigido pelo regulamento.</span>
-                      </label>
+                    <div className="border-t border-gold/20 pt-3">
                       <label htmlFor="t_final_c" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
                         <Checkbox id="t_final_c" checked={termosAceitos} onCheckedChange={v => setTermosAceitos(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground font-medium">✅ Li, compreendi e aceito o regulamento completo do 9º F.A.D.D.A.</span>
+                        <span className="text-sm font-sans text-foreground font-medium">✅ Declaro que li e aceitei os termos e regulamento do 9º F.A.D.D.A.</span>
                       </label>
                     </div>
                   </div>
