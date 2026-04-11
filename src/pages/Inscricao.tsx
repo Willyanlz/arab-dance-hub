@@ -91,12 +91,12 @@ const Inscricao = () => {
   const [loteAtualWorkshop, setLoteAtualWorkshop] = useState<LoteWorkshop | null>(null);
 
   // ── Config ────────────────────────────────────────────────────────────────
-  const [modalidadesComp, setModalidadesComp] = useState<string[]>([]);
-  const [modalidadesMostra, setModalidadesMostra] = useState<string[]>([]);
+  const [modalidadesConfig, setModalidadesConfig] = useState<any[]>([]);
   const [comoSoubeOpcoes, setComoSoubeOpcoes] = useState<string[]>([]);
   const [workshopsDisponiveis, setWorkshopsDisponiveis] = useState<WorkshopItem[]>([]);
   const [termosTexto, setTermosTexto] = useState<Record<string, string>>({});
   const [inscricoesAbertas, setInscricoesAbertas] = useState<Record<string, boolean>>({});
+  const [faixaEtaria, setFaixaEtaria] = useState('');
 
   // ── Profile fields ────────────────────────────────────────────────────────
   const [cpf, setCpf] = useState('');
@@ -174,30 +174,31 @@ const Inscricao = () => {
         { data: workshopsData },
         { data: termosData },
         { data: profileData },
+        { data: modalidadesData },
       ] = await Promise.all([
         supabase.from('lotes').select('*').order('numero'),
-        supabase.from('lotes_mostra').select('*').order('numero'),
-        supabase.from('lotes_workshop').select('*').order('numero'),
+        (supabase.from('lotes_mostra') as any).select('*').order('numero'),
+        (supabase.from('lotes_workshop') as any).select('*').order('numero'),
         supabase.from('site_config').select('chave,valor'),
-        supabase.from('workshops_config').select('*').eq('ativo', true).order('nome'),
-        supabase.from('termos_config').select('tipo,conteudo'),
+        (supabase.from('workshops_config') as any).select('*').eq('ativo', true).order('nome'),
+        (supabase.from('termos_config') as any).select('tipo,conteudo'),
         supabase.from('profiles').select('cpf,telefone,is_aluna_jalilete,participante_anterior').eq('user_id', user.id).single(),
+        (supabase.from('modalidades_config') as any).select('*').eq('ativo', true).order('ordem'),
       ]);
 
       if (lotesData) { setLotes(lotesData as any); setLoteAtual(getLoteAtual(lotesData as any)); }
       if (lotesMostraData) { setLotesMostra(lotesMostraData as any); setLoteAtualMostra(getLoteAtual(lotesMostraData as any)); }
       if (lotesWorkshopData) { setLotesWorkshop(lotesWorkshopData as any); setLoteAtualWorkshop(getLoteAtual(lotesWorkshopData as any)); }
       if (workshopsData) setWorkshopsDisponiveis(workshopsData as any);
+      if (modalidadesData) setModalidadesConfig(modalidadesData);
       if (termosData) {
         const map: Record<string, string> = {};
-        termosData.forEach((t: any) => { map[t.tipo] = t.conteudo; });
+        (termosData as any[]).forEach((t: any) => { map[t.tipo] = t.conteudo; });
         setTermosTexto(map);
       }
       if (configData) {
         const map: Record<string, any> = {};
         configData.forEach((c: any) => { map[c.chave] = c.valor; });
-        setModalidadesComp(Array.isArray(map.modalidades_competicao) ? map.modalidades_competicao : []);
-        setModalidadesMostra(Array.isArray(map.modalidades_mostra) ? map.modalidades_mostra : []);
         setComoSoubeOpcoes(Array.isArray(map.como_soube_opcoes) ? map.como_soube_opcoes : []);
         setInscricoesAbertas({
           competicao: map.inscricoes_abertas_competicao !== false,
@@ -215,6 +216,10 @@ const Inscricao = () => {
     };
     load();
   }, [user]);
+
+  // Derived: modalidades filtered by tipo and periodo
+  const modalidadesComp = modalidadesConfig.filter(m => m.tipo === 'competicao' && (periodo === 'nao_competir' || m.periodo === periodo));
+  const modalidadesMostra = modalidadesConfig.filter(m => m.tipo === 'mostra' && m.periodo === periodoMostra);
 
   // ── Participant helpers ───────────────────────────────────────────────────
   const addParticipante = () => setParticipantes([...participantes, { nome: '', cpf: '' }]);
