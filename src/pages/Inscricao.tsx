@@ -339,10 +339,7 @@ const Inscricao = () => {
   };
 
   const canSubmit = () => {
-    if (!termosAceitos) return false;
-    if (tipoInscricao === 'competicao') return termoAtraso && termoMusica;
-    if (tipoInscricao === 'mostra') return termoAtrasoM && termoMusicaM && termoSemEnsaioM;
-    return true;
+    return termosAceitos;
   };
 
   // ── Render loading ────────────────────────────────────────────────────────
