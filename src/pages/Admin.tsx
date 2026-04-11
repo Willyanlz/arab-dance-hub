@@ -135,7 +135,7 @@ const Admin = () => {
   const saveEdits = async () => {
     if (!selected) return;
     setSaving(true);
-    await supabase.from('inscricoes').update({ status: editStatus, observacoes: editObs }).eq('id', selected.id);
+    await supabase.from('inscricoes').update({ status: editStatus as any, observacoes: editObs }).eq('id', selected.id);
     toast({ title: '✅ Inscrição atualizada' });
     setEditMode(false);
     setSaving(false);
