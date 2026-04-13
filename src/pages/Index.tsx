@@ -24,7 +24,7 @@ const Index = () => {
   const [config, setConfig] = useState<Record<string, any>>({});
   const [modalidades, setModalidades] = useState<string[]>([...DEFAULT_MODALIDADES]);
   const [premiacoes, setPremiacoes] = useState(DEFAULT_PREMIACOES);
-  const [pontuacao, setPontuacao] = useState(DEFAULT_PONTUACAO);
+  const [pontuacao, setPontuacao] = useState<Record<string, number>>(DEFAULT_PONTUACAO);
   const [stands, setStands] = useState<StandItem[]>([]);
   const [loaded, setLoaded] = useState(false);
 
