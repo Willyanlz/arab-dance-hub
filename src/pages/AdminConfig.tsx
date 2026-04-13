@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Plus, Trash2, Save, Trophy, Star, BookOpen, Ticket, Settings2, FileText, MapPin, Calendar } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Trophy, Star, BookOpen, Ticket, Settings2, FileText, MapPin, Calendar, Store } from 'lucide-react';
 
 interface ModalidadeConfig {
   id?: string;
@@ -66,6 +66,7 @@ const AdminConfig = () => {
   const [eventoPix, setEventoPix] = useState('fadda@festival.com.br');
   const [premiacoes, setPremiacoes] = useState<{categoria:string;valor:string}[]>([]);
   const [pontuacao, setPontuacao] = useState<{criterio:string;percentual:number}[]>([]);
+  const [standsFeirinha, setStandsFeirinha] = useState<{titulo:string;icone:string;descricao:string;contato:string}[]>([]);
 
   // ── New lote form state
   const [novoLoteComp, setNovoLoteComp] = useState({ numero: 1, nome: '', data_inicio: '', data_fim: '', preco_solo: 0, preco_dupla_trio: 0, preco_grupo_por_integrante: 0 });
@@ -120,6 +121,7 @@ const AdminConfig = () => {
       if (typeof map.evento_pix === 'string') setEventoPix(map.evento_pix);
       if (Array.isArray(map.premiacoes)) setPremiacoes(map.premiacoes);
       if (Array.isArray(map.pontuacao)) setPontuacao(map.pontuacao);
+      if (Array.isArray(map.stands_feirinha)) setStandsFeirinha(map.stands_feirinha);
     }
     if (ingressoData) setTiposIngresso(ingressoData);
     if (workshopsData) setWorkshops(workshopsData);
@@ -260,6 +262,11 @@ const AdminConfig = () => {
   const removePontuacao = (i: number) => setPontuacao(pontuacao.filter((_, j) => j !== i));
   const updatePontuacao = (i: number, field: string, val: any) => { const u = [...pontuacao]; u[i] = { ...u[i], [field]: val }; setPontuacao(u); };
 
+  // Helper for stands
+  const addStand = () => setStandsFeirinha([...standsFeirinha, { titulo: '', icone: 'circle', descricao: '', contato: '' }]);
+  const removeStand = (i: number) => setStandsFeirinha(standsFeirinha.filter((_, j) => j !== i));
+  const updateStand = (i: number, field: string, val: string) => { const u = [...standsFeirinha]; u[i] = { ...u[i], [field]: val }; setStandsFeirinha(u); };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card px-4 py-4 sticky top-0 z-10">
@@ -284,6 +291,7 @@ const AdminConfig = () => {
             <TabsTrigger value="termos" className="font-sans text-xs"><FileText className="w-3.5 h-3.5 mr-1" />Termos</TabsTrigger>
             <TabsTrigger value="workshops" className="font-sans text-xs"><BookOpen className="w-3.5 h-3.5 mr-1" />Workshops</TabsTrigger>
             <TabsTrigger value="ingressos" className="font-sans text-xs"><Ticket className="w-3.5 h-3.5 mr-1" />Ingressos</TabsTrigger>
+            <TabsTrigger value="stands" className="font-sans text-xs"><Store className="w-3.5 h-3.5 mr-1" />Stands</TabsTrigger>
             <TabsTrigger value="landpage" className="font-sans text-xs">🌐 Evento</TabsTrigger>
           </TabsList>
 
