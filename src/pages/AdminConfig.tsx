@@ -649,6 +649,51 @@ const AdminConfig = () => {
             </Card>
           </TabsContent>
 
+          {/* ── STANDS / FEIRINHA ── */}
+          <TabsContent value="stands" className="space-y-6">
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="font-serif text-foreground text-lg flex items-center gap-2"><Store className="w-5 h-5 text-primary" />Stands / Feirinha</CardTitle>
+                <CardDescription className="font-sans text-muted-foreground text-xs">Configure os stands que aparecem na landing page. Ícones: camera, scissors, circle.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {standsFeirinha.map((s, i) => (
+                  <div key={i} className="p-4 bg-muted rounded-lg space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-foreground font-sans text-xs">Título</Label>
+                        <Input value={s.titulo} onChange={e => updateStand(i, 'titulo', e.target.value)} placeholder="Ex: Foto e Filmagem" className="bg-background border-border text-foreground" />
+                      </div>
+                      <div>
+                        <Label className="text-foreground font-sans text-xs">Ícone</Label>
+                        <select value={s.icone} onChange={e => updateStand(i, 'icone', e.target.value)} className="w-full h-10 rounded-md border border-border bg-background text-foreground px-3 text-sm font-sans">
+                          <option value="camera">📷 Câmera</option>
+                          <option value="scissors">✂️ Tesoura</option>
+                          <option value="circle">⭕ Círculo</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label className="text-foreground font-sans text-xs">Contato</Label>
+                        <Input value={s.contato} onChange={e => updateStand(i, 'contato', e.target.value)} placeholder="WhatsApp: 19 9 9999-9999" className="bg-background border-border text-foreground" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-foreground font-sans text-xs">Descrição</Label>
+                      <Textarea value={s.descricao} onChange={e => updateStand(i, 'descricao', e.target.value)} rows={4} className="bg-background border-border text-foreground font-sans text-sm" />
+                    </div>
+                    <div className="flex justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => removeStand(i)}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={addStand} className="border-border text-foreground font-sans"><Plus className="w-4 h-4 mr-1" /> Adicionar Stand</Button>
+                  <Button onClick={() => upsertConfig('stands_feirinha', standsFeirinha)} className="bg-gradient-gold text-primary-foreground font-sans"><Save className="w-4 h-4 mr-1" /> Salvar</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* ── EVENTO / LANDPAGE ── */}
           <TabsContent value="landpage" className="space-y-6">
             <Card className="bg-card border-border">
