@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Download, Check, Search, Eye, X, Edit2, Users, Trophy, Star, BookOpen, UserPlus } from 'lucide-react';
+import { ArrowLeft, Download, Check, Search, Eye, X, Edit2, Users, Trophy, Star, BookOpen, UserPlus, Ticket, DollarSign } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, string> = {
   pendente: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -42,6 +42,9 @@ const Admin = () => {
   const [busca, setBusca] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // Ingressos stats
+  const [ingressosVendidos, setIngressosVendidos] = useState<any[]>([]);
+
   // Detail dialog
   const [selected, setSelected] = useState<any | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -61,11 +64,12 @@ const Admin = () => {
 
   const loadInscricoes = async () => {
     setLoading(true);
-    const { data: inscData } = await supabase
-      .from('inscricoes')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const [{ data: inscData }, { data: ingressosData }] = await Promise.all([
+      supabase.from('inscricoes').select('*').order('created_at', { ascending: false }),
+      supabase.from('ingressos_vendidos').select('*'),
+    ]);
 
+    if (ingressosData) setIngressosVendidos(ingressosData);
     if (!inscData) { setLoading(false); return; }
 
     const userIds = [...new Set(inscData.map((i: any) => i.user_id))];
@@ -75,15 +79,10 @@ const Admin = () => {
       .in('user_id', userIds);
 
     const inscIds = inscData.map((i: any) => i.id);
-    const { data: participantesData } = await supabase
-      .from('participantes')
-      .select('inscricao_id,nome,cpf,email,telefone')
-      .in('inscricao_id', inscIds);
-
-    const { data: workshopsData } = await supabase
-      .from('inscricao_workshops')
-      .select('inscricao_id,workshop_id,workshops_config(nome,professor)')
-      .in('inscricao_id', inscIds);
+    const [{ data: participantesData }, { data: workshopsData }] = await Promise.all([
+      supabase.from('participantes').select('inscricao_id,nome,cpf,email,telefone').in('inscricao_id', inscIds),
+      supabase.from('inscricao_workshops').select('inscricao_id,workshop_id,workshops_config(nome,professor)').in('inscricao_id', inscIds),
+    ]);
 
     const participantesMap = new Map<string, any[]>();
     participantesData?.forEach((p: any) => {
@@ -193,7 +192,8 @@ const Admin = () => {
     a.href = url; a.download = 'inscricoes_fadda.csv'; a.click();
   };
 
-  const stats = {
+  // Inscription stats
+  const statsInsc = {
     total: inscricoes.length,
     pendentes: inscricoes.filter(i => i.status === 'pendente').length,
     confirmadas: inscricoes.filter(i => i.status === 'confirmado').length,
@@ -202,6 +202,16 @@ const Admin = () => {
     mostra: inscricoes.filter(i => i.tipo_inscricao === 'mostra').length,
     workshop: inscricoes.filter(i => i.tipo_inscricao === 'workshop').length,
   };
+
+  // Ticket stats
+  const statsIngresso = {
+    totalVendidos: ingressosVendidos.filter(v => v.status !== 'cancelado').reduce((s, v) => s + Number(v.quantidade || 0), 0),
+    receita: ingressosVendidos.filter(v => v.status === 'pago' || v.status === 'confirmado').reduce((s, v) => s + Number(v.valor_total || 0), 0),
+    pendentes: ingressosVendidos.filter(v => v.status === 'pendente').length,
+  };
+
+  // Grand totals
+  const receitaTotal = statsInsc.receita + statsIngresso.receita;
 
   if (authLoading || loading) {
     return (
@@ -230,6 +240,9 @@ const Admin = () => {
             <Button asChild variant="outline" size="sm" className="border-border text-foreground font-sans">
               <Link to="/admin/config">⚙️ Configurações</Link>
             </Button>
+            <Button asChild variant="outline" size="sm" className="border-border text-foreground font-sans">
+              <Link to="/admin/ingressos">🎫 Ingressos</Link>
+            </Button>
             <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground font-sans">Sair</Button>
           </div>
         </div>
@@ -238,7 +251,7 @@ const Admin = () => {
       <main className="max-w-7xl mx-auto py-8 px-4">
         {/* Title + actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <h1 className="text-2xl font-serif font-bold text-foreground">Gerenciamento de Inscrições</h1>
+          <h1 className="text-2xl font-serif font-bold text-foreground">Painel Administrativo</h1>
           <div className="flex gap-2">
             <Button asChild size="sm" className="bg-gradient-gold text-primary-foreground font-sans">
               <Link to="/inscricao"><UserPlus className="w-4 h-4 mr-1" /> Nova Inscrição</Link>
@@ -249,13 +262,48 @@ const Admin = () => {
           </div>
         </div>
 
+        {/* Grand Total */}
+        <Card className="bg-gradient-gold mb-6">
+          <CardContent className="p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+              <p className="text-primary-foreground/80 font-sans text-sm uppercase tracking-wide">Receita Total (Inscrições + Ingressos)</p>
+              <p className="text-4xl font-bold text-primary-foreground font-sans">R$ {receitaTotal.toFixed(2)}</p>
+            </div>
+            <div className="flex gap-6 text-primary-foreground/90 font-sans text-sm">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-primary-foreground">{statsInsc.total}</p>
+                <p>Inscrições</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-primary-foreground">{statsIngresso.totalVendidos}</p>
+                <p>Ingressos</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           {[
-            { label: 'Total', value: stats.total },
-            { label: 'Pendentes', value: stats.pendentes },
-            { label: 'Confirmadas', value: stats.confirmadas },
-            { label: 'Receita', value: `R$ ${stats.receita.toFixed(2)}` },
+            { label: 'Inscrições', value: statsInsc.total, icon: Users },
+            { label: 'Pendentes', value: statsInsc.pendentes, icon: Users },
+            { label: 'Confirmadas', value: statsInsc.confirmadas, icon: Check },
+            { label: 'Receita Inscrições', value: `R$ ${statsInsc.receita.toFixed(2)}`, icon: DollarSign },
+          ].map(s => (
+            <Card key={s.label} className="bg-card border-border">
+              <CardContent className="p-4 text-center">
+                <p className="text-xs text-muted-foreground font-sans uppercase tracking-wide">{s.label}</p>
+                <p className="text-xl font-bold text-foreground font-sans mt-1">{s.value}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          {[
+            { label: 'Ingressos Vendidos', value: statsIngresso.totalVendidos, icon: Ticket },
+            { label: 'Receita Ingressos', value: `R$ ${statsIngresso.receita.toFixed(2)}`, icon: DollarSign },
+            { label: 'Ingresso Pendentes', value: statsIngresso.pendentes, icon: Ticket },
+            { label: 'Receita Total', value: `R$ ${receitaTotal.toFixed(2)}`, icon: DollarSign },
           ].map(s => (
             <Card key={s.label} className="bg-card border-border">
               <CardContent className="p-4 text-center">
@@ -267,9 +315,9 @@ const Admin = () => {
         </div>
         <div className="grid grid-cols-3 gap-4 mb-6">
           {[
-            { label: 'Competição', value: stats.competicao, icon: Trophy },
-            { label: 'Mostra', value: stats.mostra, icon: Star },
-            { label: 'Workshop', value: stats.workshop, icon: BookOpen },
+            { label: 'Competição', value: statsInsc.competicao, icon: Trophy },
+            { label: 'Mostra', value: statsInsc.mostra, icon: Star },
+            { label: 'Workshop', value: statsInsc.workshop, icon: BookOpen },
           ].map(s => (
             <Card key={s.label} className="bg-card border-border">
               <CardContent className="p-3 flex items-center gap-3">
@@ -413,7 +461,6 @@ const Admin = () => {
 
           {selected && (
             <div className="space-y-5 font-sans text-sm">
-              {/* Tipo e Categoria */}
               <div className="flex gap-2 flex-wrap">
                 <Badge className={`${TIPO_LABELS[selected.tipo_inscricao]?.color || ''} border-0`}>
                   {TIPO_LABELS[selected.tipo_inscricao]?.label || selected.tipo_inscricao}
@@ -423,7 +470,6 @@ const Admin = () => {
                 </Badge>
               </div>
 
-              {/* Dados do responsável */}
               <div className="bg-muted rounded-lg p-4 space-y-2">
                 <p className="font-semibold text-foreground mb-2">Responsável pela Inscrição</p>
                 <div className="grid grid-cols-2 gap-2 text-foreground">
@@ -436,7 +482,6 @@ const Admin = () => {
                 </div>
               </div>
 
-              {/* Dados da apresentação */}
               <div className="bg-muted rounded-lg p-4 space-y-2">
                 <p className="font-semibold text-foreground mb-2">Dados da Apresentação</p>
                 <div className="grid grid-cols-2 gap-2 text-foreground">
@@ -447,15 +492,15 @@ const Admin = () => {
                   {selected.nome_artistico && <div><span className="text-muted-foreground">Nome Artístico: </span>{selected.nome_artistico}</div>}
                   {selected.tipo_musica && <div><span className="text-muted-foreground">Música: </span>{selected.tipo_musica}</div>}
                   {selected.periodo && <div><span className="text-muted-foreground">Período: </span>{selected.periodo === 'manha' ? 'Manhã' : selected.periodo === 'tarde' ? 'Tarde' : 'S/ preferência'}</div>}
-                  {selected.tipo_participacao && <div><span className="text-muted-foreground">Tipo Participação: </span>{selected.tipo_participacao}</div>}
+                  {selected.faixa_etaria && <div><span className="text-muted-foreground">Faixa Etária: </span>{selected.faixa_etaria}</div>}
+                  {selected.tipo_participacao_mostra && <div><span className="text-muted-foreground">Tipo Part.: </span>{selected.tipo_participacao_mostra}</div>}
                   {selected.sugestao_horario && <div><span className="text-muted-foreground">Sugestão Horário: </span>{selected.sugestao_horario}</div>}
                   {selected.tipo_compra_workshop && <div><span className="text-muted-foreground">Compra Workshop: </span>{selected.tipo_compra_workshop}</div>}
                   {selected.como_soube && <div className="col-span-2"><span className="text-muted-foreground">Como soube: </span>{selected.como_soube}</div>}
-                  {selected.extra_harem && <div className="col-span-2"><Badge className="text-xs bg-burgundy/10 text-burgundy border-0">✨ Harem das Fadas</Badge></div>}
+                  {selected.participa_harem && <div className="col-span-2"><Badge className="text-xs bg-burgundy/10 text-burgundy border-0">✨ Harem das Fadas</Badge></div>}
                 </div>
               </div>
 
-              {/* Workshops selecionados */}
               {selected.workshops_lista?.length > 0 && (
                 <div className="bg-muted rounded-lg p-4">
                   <p className="font-semibold text-foreground mb-2">Workshops Selecionados</p>
@@ -465,13 +510,11 @@ const Admin = () => {
                 </div>
               )}
 
-              {/* Todos os participantes */}
               {(selected.participantes_lista?.length > 0) && (
                 <div className="bg-muted rounded-lg p-4">
                   <p className="font-semibold text-foreground mb-2 flex items-center gap-1">
                     <Users className="w-4 h-4 text-primary" /> Todos os Participantes
                   </p>
-                  {/* Responsável */}
                   <div className="p-2 bg-primary/5 rounded mb-1 border border-gold/20">
                     <p className="font-medium text-foreground">1. {selected.profiles?.nome} <span className="text-muted-foreground font-normal text-xs">(responsável)</span></p>
                     <p className="text-xs text-muted-foreground">CPF: {selected.profiles?.cpf || '—'}</p>
@@ -485,7 +528,6 @@ const Admin = () => {
                 </div>
               )}
 
-              {/* Financeiro */}
               <div className="bg-muted rounded-lg p-4">
                 <p className="font-semibold text-foreground mb-2">Financeiro</p>
                 <div className="flex justify-between"><span className="text-muted-foreground">Valor base:</span><span className="text-foreground">R$ {Number(selected.valor_total || 0).toFixed(2)}</span></div>
@@ -493,7 +535,6 @@ const Admin = () => {
                 <div className="flex justify-between font-bold"><span className="text-foreground">Total:</span><span className="text-primary">R$ {Number(selected.valor_final || 0).toFixed(2)}</span></div>
               </div>
 
-              {/* Edit mode */}
               {editMode ? (
                 <div className="space-y-3 border border-gold/30 rounded-lg p-4">
                   <p className="font-semibold text-foreground">✏️ Editar Inscrição</p>
