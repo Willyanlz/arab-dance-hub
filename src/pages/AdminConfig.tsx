@@ -124,6 +124,11 @@ const AdminConfig = () => {
       if (typeof map.evento_local === 'string') setEventoLocal(map.evento_local);
       if (typeof map.evento_horario === 'string') setEventoHorario(map.evento_horario);
       if (typeof map.evento_pix === 'string') setEventoPix(map.evento_pix);
+      if (typeof map.evento_edicao === 'string') setEventoEdicao(map.evento_edicao);
+      if (typeof map.evento_subtitulo === 'string') setEventoSubtitulo(map.evento_subtitulo);
+      if (typeof map.evento_descricao === 'string') setEventoDescricao(map.evento_descricao);
+      if (Array.isArray(map.regras_musica)) setRegrasMusica(map.regras_musica);
+      if (Array.isArray(map.regras_proibicoes)) setRegrasProibicoes(map.regras_proibicoes);
       if (Array.isArray(map.premiacoes)) setPremiacoes(map.premiacoes);
       if (Array.isArray(map.pontuacao)) setPontuacao(map.pontuacao);
       if (Array.isArray(map.stands_feirinha)) setStandsFeirinha(map.stands_feirinha);
@@ -626,6 +631,12 @@ const AdminConfig = () => {
                   <div><Label className="text-foreground font-sans">Descrição</Label><Input value={novoIngresso.descricao} onChange={e => setNovoIngresso({ ...novoIngresso, descricao: e.target.value })} className="bg-background border-border text-foreground" /></div>
                   <div><Label className="text-foreground font-sans">Preço (R$)</Label><Input type="number" value={novoIngresso.preco} onChange={e => setNovoIngresso({ ...novoIngresso, preco: Number(e.target.value) })} className="bg-background border-border text-foreground" /></div>
                   <div><Label className="text-foreground font-sans">Quantidade Total</Label><Input type="number" value={novoIngresso.quantidade_total} onChange={e => setNovoIngresso({ ...novoIngresso, quantidade_total: Number(e.target.value) })} className="bg-background border-border text-foreground" /></div>
+                  <div><Label className="text-foreground font-sans">Lote</Label>
+                    <select value={novoIngresso.lote_ingresso_id} onChange={e => setNovoIngresso({ ...novoIngresso, lote_ingresso_id: e.target.value })} className="w-full h-10 rounded-md border border-border bg-background text-foreground px-3 text-sm font-sans">
+                      <option value="">Sem lote</option>
+                      {lotesIngresso.map((l: any) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <Button onClick={criarIngresso} className="bg-gradient-gold text-primary-foreground font-sans"><Plus className="w-4 h-4 mr-1" /> Criar Ingresso</Button>
               </CardContent>
