@@ -718,12 +718,47 @@ const AdminConfig = () => {
                 <CardDescription className="font-sans text-muted-foreground text-xs">Estes dados aparecem na landing page.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div><Label className="text-foreground font-sans">Edição (ex: 9ª Edição)</Label><Input value={eventoEdicao} onChange={e => setEventoEdicao(e.target.value)} className="bg-background border-border text-foreground" /></div>
                 <div><Label className="text-foreground font-sans">Nome do Evento</Label><Input value={eventoNome} onChange={e => setEventoNome(e.target.value)} className="bg-background border-border text-foreground" /></div>
+                <div><Label className="text-foreground font-sans">Subtítulo</Label><Input value={eventoSubtitulo} onChange={e => setEventoSubtitulo(e.target.value)} className="bg-background border-border text-foreground" /></div>
+                <div><Label className="text-foreground font-sans">Descrição curta</Label><Input value={eventoDescricao} onChange={e => setEventoDescricao(e.target.value)} className="bg-background border-border text-foreground" /></div>
                 <div><Label className="text-foreground font-sans">Data do Evento</Label><Input value={eventoData} onChange={e => setEventoData(e.target.value)} className="bg-background border-border text-foreground" /></div>
                 <div><Label className="text-foreground font-sans">Local</Label><Input value={eventoLocal} onChange={e => setEventoLocal(e.target.value)} className="bg-background border-border text-foreground" /></div>
                 <div><Label className="text-foreground font-sans">Horário</Label><Input value={eventoHorario} onChange={e => setEventoHorario(e.target.value)} placeholder="9h às 22h" className="bg-background border-border text-foreground" /></div>
                 <div><Label className="text-foreground font-sans">Chave PIX</Label><Input value={eventoPix} onChange={e => setEventoPix(e.target.value)} className="bg-background border-border text-foreground" /></div>
-                <Button onClick={async () => { await Promise.all([upsertConfig('evento_nome', eventoNome), upsertConfig('evento_data', eventoData), upsertConfig('evento_local', eventoLocal), upsertConfig('evento_horario', eventoHorario), upsertConfig('evento_pix', eventoPix)]); }} className="bg-gradient-gold text-primary-foreground font-sans"><Save className="w-4 h-4 mr-1" /> Salvar</Button>
+                <Button onClick={async () => { await Promise.all([upsertConfig('evento_nome', eventoNome), upsertConfig('evento_data', eventoData), upsertConfig('evento_local', eventoLocal), upsertConfig('evento_horario', eventoHorario), upsertConfig('evento_pix', eventoPix), upsertConfig('evento_edicao', eventoEdicao), upsertConfig('evento_subtitulo', eventoSubtitulo), upsertConfig('evento_descricao', eventoDescricao)]); }} className="bg-gradient-gold text-primary-foreground font-sans"><Save className="w-4 h-4 mr-1" /> Salvar</Button>
+              </CardContent>
+            </Card>
+
+            {/* Regras */}
+            <Card className="bg-card border-border">
+              <CardHeader><CardTitle className="font-serif text-foreground text-lg">Regras — Música</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {regrasMusica.map((r, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Input value={r} onChange={e => { const u = [...regrasMusica]; u[i] = e.target.value; setRegrasMusica(u); }} className="bg-background border-border text-foreground flex-1" />
+                    <Button variant="ghost" size="icon" onClick={() => setRegrasMusica(regrasMusica.filter((_, j) => j !== i))}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setRegrasMusica([...regrasMusica, ''])} className="border-border text-foreground font-sans"><Plus className="w-4 h-4 mr-1" /> Adicionar</Button>
+                  <Button onClick={() => upsertConfig('regras_musica', regrasMusica)} className="bg-gradient-gold text-primary-foreground font-sans"><Save className="w-4 h-4 mr-1" /> Salvar</Button>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card border-border">
+              <CardHeader><CardTitle className="font-serif text-foreground text-lg">Regras — Proibições</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {regrasProibicoes.map((r, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Input value={r} onChange={e => { const u = [...regrasProibicoes]; u[i] = e.target.value; setRegrasProibicoes(u); }} className="bg-background border-border text-foreground flex-1" />
+                    <Button variant="ghost" size="icon" onClick={() => setRegrasProibicoes(regrasProibicoes.filter((_, j) => j !== i))}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setRegrasProibicoes([...regrasProibicoes, ''])} className="border-border text-foreground font-sans"><Plus className="w-4 h-4 mr-1" /> Adicionar</Button>
+                  <Button onClick={() => upsertConfig('regras_proibicoes', regrasProibicoes)} className="bg-gradient-gold text-primary-foreground font-sans"><Save className="w-4 h-4 mr-1" /> Salvar</Button>
+                </div>
               </CardContent>
             </Card>
 
