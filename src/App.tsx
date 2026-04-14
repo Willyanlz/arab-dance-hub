@@ -15,6 +15,17 @@ import Ingressos from "./pages/Ingressos.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import UpdatePassword from "./pages/UpdatePassword.tsx";
 import AdminScanner from "./pages/AdminScanner.tsx";
+import { Navigate } from "react-router-dom";
+import { ConfigInscricoes } from "./pages/admin-config/ConfigInscricoes";
+import { ConfigPrecos } from "./pages/admin-config/ConfigPrecos";
+import { FormulariosConfig } from "./pages/admin-config/FormulariosConfig";
+import { ConfigTermos } from "./pages/admin-config/ConfigTermos";
+import { ConfigWorkshops } from "./pages/admin-config/ConfigWorkshops";
+import { ConfigIngressos } from "./pages/admin-config/ConfigIngressos";
+import { ConfigStands } from "./pages/admin-config/ConfigStands";
+import { ConfigEvento } from "./pages/admin-config/ConfigEvento";
+import { AdminRoles } from "./pages/admin-config/AdminRoles";
+import { FormBuilder } from "./pages/admin-config/components/FormBuilder";
 
 const queryClient = new QueryClient();
 
@@ -32,7 +43,23 @@ const App = () => (
             <Route path="/ingressos" element={<Ingressos />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin" element={<Admin />} />
-            <Route path="/admin/config" element={<AdminConfig />} />
+            <Route path="/admin/config" element={<AdminConfig />}>
+              <Route index element={<Navigate to="geral" replace />} />
+              <Route path="geral" element={<ConfigInscricoes />} />
+              <Route path="precos" element={<ConfigPrecos />} />
+              <Route path="formularios" element={<FormulariosConfig />}>
+                <Route index element={<Navigate to="competicao" replace />} />
+                <Route path="competicao" element={<FormBuilder tipo="competicao" title="Formulário: Competição" />} />
+                <Route path="mostra" element={<FormBuilder tipo="mostra" title="Formulário: Mostra" />} />
+                <Route path="workshop" element={<FormBuilder tipo="workshop" title="Formulário: Workshop" />} />
+              </Route>
+              <Route path="termos" element={<ConfigTermos />} />
+              <Route path="workshops" element={<ConfigWorkshops />} />
+              <Route path="ingressos" element={<ConfigIngressos />} />
+              <Route path="stands" element={<ConfigStands />} />
+              <Route path="landpage" element={<ConfigEvento />} />
+              <Route path="admins" element={<AdminRoles />} />
+            </Route>
             <Route path="/admin/ingressos" element={<AdminIngressos />} />
             <Route path="/admin/scanner" element={<AdminScanner />} />
             <Route path="/update-password" element={<UpdatePassword />} />

@@ -95,5 +95,115 @@ Ao criar novos componentes ou páginas:
 4. **Interatividade:** Adicione `transition-colors` e efeitos de hover suaves.
 5. **Gradients:** Títulos principais devem quase sempre usar `.text-gradient-gold`.
 
+# 🚀 Design System + Arquitetura Frontend  
+## Arab Dance Hub (F.A.D.D.A 2026)
+
+> Single Source of Truth (SSOT) para UI, UX e desenvolvimento frontend.
+
+---
+
+# 📱 0. Filosofia Base
+
+## Mobile-First (OBRIGATÓRIO)
+- Todo layout começa em mobile
+- Breakpoints apenas para expansão (md, lg, xl)
+
+## Componentização
+- Tudo reutilizável, desacoplado e independente
+
+## Roteamento
+- Cada tela = uma rota
+
+---
+
+# 🧠 1. Arquitetura
+
+src/
+ ├── app/
+ │   ├── home/
+ │   ├── events/
+ │   ├── artists/
+ │   ├── dashboard/
+ │   └── auth/
+ ├── components/
+ │   ├── ui/
+ │   ├── shared/
+ │   ├── layout/
+ │   └── sections/
+
+---
+
+# 🔁 2. Regra CRÍTICA
+
+Cada componente:
+- Deve ser isolado
+- Deve poder ser reutilizado
+- Deve ser acessado via rota ou composição
+
+---
+
+# 🎨 3. Tipografia
+
+- Playfair Display → títulos
+- Inter → corpo
+
+---
+
+# 🎨 4. Cores
+
+Gold, Burgundy, Sand
+
+---
+
+# ⚛️ 5. React
+
+- TypeScript obrigatório
+- Sem any
+- Lógica fora do JSX
+
+---
+
+# 🔀 6. Rotas
+
+/  
+/events  
+/events/[id]  
+
+---
+
+# ⚡ 7. Performance
+
+- Lazy loading
+- Code splitting
+
+---
+
+# ♿ 8. Acessibilidade
+
+- aria-label
+- contraste
+- teclado
+
+---
+
+# 🧠 9. Diretrizes IA
+
+Deve:
+- Mobile-first
+- Componentes isolados
+
+Não deve:
+- Código gigante
+- Misturar responsabilidades
+
+---
+
+# 🏁 Conclusão
+
+Projeto deve ser:
+- Escalável
+- Limpo
+- Reutilizável
+
 ---
 *Atualizado em: 9 de Abril de 2026*

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { Resend } from "npm:resend";
 
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const resend = new Resend(Deno.env.get("RESEND_KEY"));
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,72 +18,66 @@ interface TicketRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    if (!RESEND_API_KEY) {
-      throw new Error("RESEND_API_KEY is not set");
-    }
-
     const ticketReq: TicketRequest = await req.json();
 
     const encodedId = btoa(ticketReq.ingresso_id);
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedId}`;
 
     const htmlContent = `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background-color: #1a1a1a; color: #fff; padding: 20px; border-radius: 10px;">
-        <h1 style="color: #d4af37; text-align: center;">F.A.D.D.A - Seu Ingresso</h1>
-        <p style="font-size: 16px;">Olá <strong>${ticketReq.nome_comprador}</strong>,</p>
-        <p style="font-size: 16px;">Seu pagamento foi confirmado! Aqui estão os detalhes do seu ingresso:</p>
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #000; color: #fff; padding: 40px 20px; border-radius: 12px; border: 1px solid #d4af37;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #d4af37; font-size: 28px; margin: 0; text-transform: uppercase; letter-spacing: 2px;">F.A.D.D.A</h1>
+          <p style="color: #888; margin: 5px 0;">Festival Araraquarense de Danças Árabes</p>
+        </div>
+
+        <p style="font-size: 18px; line-height: 1.6;">Olá, <span style="color: #d4af37; font-weight: bold;">${ticketReq.nome_comprador}</span>!</p>
+        <p style="font-size: 16px; line-height: 1.6; color: #ccc;">Seu pagamento foi confirmado com sucesso. Prepare-se para uma experiência inesquecível no mundo da dança árabe!</p>
         
-        <div style="background-color: #2a2a2a; border-left: 4px solid #d4af37; padding: 15px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Ingresso:</strong> ${ticketReq.tipo_ingresso_nome}</p>
-          <p style="margin: 5px 0;"><strong>Quantidade:</strong> ${ticketReq.quantidade}</p>
-          <p style="margin: 5px 0;"><strong>Valor Total:</strong> R$ ${ticketReq.valor_total.toFixed(2)}</p>
+        <div style="background: linear-gradient(135deg, #1a1a1a 0%, #000 100%); border: 1px solid #333; padding: 25px; margin: 30px 0; border-radius: 8px;">
+          <h2 style="color: #d4af37; font-size: 18px; margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #333; pb-10px">Detalhes do Pedido</h2>
+          <table style="width: 100%; color: #fff; font-size: 14px;">
+            <tr><td style="padding: 5px 0; color: #888;">Ingresso:</td><td style="text-align: right; font-weight: bold;">${ticketReq.tipo_ingresso_nome}</td></tr>
+            <tr><td style="padding: 5px 0; color: #888;">Quantidade:</td><td style="text-align: right; font-weight: bold;">${ticketReq.quantidade}</td></tr>
+            <tr><td style="padding: 15px 0 5px 0; color: #888; border-top: 1px solid #333; font-size: 16px;">VALOR TOTAL:</td><td style="text-align: right; font-weight: bold; color: #d4af37; border-top: 1px solid #333; font-size: 18px;">R$ ${ticketReq.valor_total.toFixed(2)}</td></tr>
+          </table>
         </div>
 
-        <div style="text-align: center; margin-top: 30px; background-color: #fff; padding: 20px; border-radius: 10px; display: inline-block;">
-          <p style="color: #000; margin-bottom: 10px; font-weight: bold;">Apresente este QR Code na portaria</p>
-          <img src="${qrCodeUrl}" alt="QR Code Ingresso" width="250" height="250" />
+        <div style="text-align: center; margin: 40px 0; background-color: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.5);">
+          <p style="color: #000; margin-bottom: 15px; font-weight: bold; font-size: 16px; text-transform: uppercase;">Seu Voucher de Acesso</p>
+          <img src="${qrCodeUrl}" alt="QR Code Ingresso" width="220" height="220" style="display: block; margin: 0 auto;" />
+          <p style="color: #666; font-size: 12px; margin-top: 15px;">Apresente este código na recepção do evento</p>
         </div>
 
-        <p style="margin-top: 30px; font-size: 12px; color: #888; text-align: center;">
-          Este é um e-mail automático, por favor não responda.<br/>
-          Em caso de dúvidas, entre em contato com a organização do evento.
-        </p>
+        <div style="text-align: center; color: #888; font-size: 12px; margin-top: 40px; border-top: 1px solid #333; padding-top: 20px;">
+          <p>9º F.A.D.D.A - 2026<br/>Araraquara, São Paulo</p>
+          <p style="margin-top: 10px;">Este é um e-mail automático. Por favor, não responda.</p>
+        </div>
       </div>
     `;
 
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: "F.A.D.D.A <onboarding@resend.dev>", // TODO: Replace with the verified domain: ingressos@seudominio.com
-        to: [ticketReq.email],
-        subject: "Seu ingresso para o 9º F.A.D.D.A foi confirmado!",
-        html: htmlContent,
-      }),
+    const { data, error } = await resend.emails.send({
+      from: "FADDA <onboarding@resend.dev>",
+      to: [ticketReq.email],
+      subject: "🎉 Seu ingresso para o 9º F.A.D.D.A está aqui!",
+      html: htmlContent,
     });
 
-    if (!res.ok) {
-      const errorData = await res.text();
-      console.error("Erro na Resend:", errorData);
-      throw new Error(`Erro ao enviar email: ${res.status} ${res.statusText}`);
+    if (error) {
+      console.error("Erro na Resend:", error);
+      throw new Error(`Erro ao enviar email: ${error.message}`);
     }
 
-    const data = await res.json();
     return new Response(JSON.stringify(data), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    console.error("Erro na Edge Function:", error);
+    console.error("Erro na Edge Function:", error.message);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

@@ -341,14 +341,39 @@ const Inscricao = () => {
   };
 
   // ── Validate steps ────────────────────────────────────────────────────────
-  const canProceedStep2 = () => {
-    // validate dynamic required
-    const config = formConfigs.find(c => c.tipo_inscricao === tipoInscricao);
-    let dynamicValid = true;
-    if (config && config.fields) {
-      let fields = typeof config.fields === 'string' ? JSON.parse(config.fields) : config.fields;
-      dynamicValid = fields.every((f: any) => !f.required || (!!dadosAdicionais[f.name] && dadosAdicionais[f.name].toString().trim().length > 0));
+  const evaluateCondition = (condition: any) => {
+    if (!condition || !condition.field) return true;
+    const val = dadosAdicionais[condition.field] || '';
+    
+    switch (condition.operator) {
+      case '==': return val == condition.value;
+      case '!=': return val != condition.value;
+      case '>': return Number(val) > Number(condition.value);
+      case '<': return Number(val) < Number(condition.value);
+      case 'includes': return String(val).toLowerCase().includes(String(condition.value).toLowerCase());
+      default: return true;
     }
+  };
+
+  const getVisibleFields = (fields: any[]) => {
+    return fields.filter(f => evaluateCondition(f.showIf));
+  };
+
+  const canProceedStep2 = () => {
+    const config = formConfigs.find(c => c.tipo_inscricao === tipoInscricao);
+    if (!config || !config.fields) {
+      if (tipoInscricao === 'competicao') return !!modalidade && !!nomeCoreografia;
+      if (tipoInscricao === 'mostra') return !!modalidadeMostra && !!nomeCoreografiaMostra;
+      if (tipoInscricao === 'workshop') return workshopsSelecionados.length > 0 && !!tipoCompraWorkshop;
+      return false;
+    }
+
+    let fields = typeof config.fields === 'string' ? JSON.parse(config.fields) : config.fields;
+    const visibleFields = getVisibleFields(fields);
+    
+    const dynamicValid = visibleFields.every((f: any) => 
+      !f.required || (!!dadosAdicionais[f.name] && dadosAdicionais[f.name].toString().trim().length > 0)
+    );
 
     if (tipoInscricao === 'competicao') return !!modalidade && !!nomeCoreografia && dynamicValid;
     if (tipoInscricao === 'mostra') return !!modalidadeMostra && !!nomeCoreografiaMostra && dynamicValid;
@@ -360,70 +385,226 @@ const Inscricao = () => {
     return termosAceitos;
   };
 
-  const renderDynamicFields = (tipo: string) => {
-    const config = formConfigs.find(c => c.tipo_inscricao === tipo);
-    if (!config || !config.fields) return null;
-    let fields = config.fields;
-    if (typeof fields === 'string') fields = JSON.parse(fields);
-    if (!Array.isArray(fields) || fields.length === 0) return null;
+  const renderField = (f: any) => {
+    // Special logic for reserved system fields
+    if (f.name === 'periodo') {
+      return (
+        <div key={f.id} className="space-y-1">
+          <Label className="text-foreground font-sans">{f.label} {f.required ? '*' : ''}</Label>
+          <Select 
+            value={tipoInscricao === 'mostra' ? periodoMostra : periodo} 
+            onValueChange={v => tipoInscricao === 'mostra' ? setPeriodoMostra(v) : setPeriodo(v)}
+          >
+            <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    }
+
+    if (f.name === 'modalidade') {
+      const currentModalidade = tipoInscricao === 'mostra' ? modalidadeMostra : modalidade;
+      const currentModalidades = tipoInscricao === 'mostra' ? modalidadesMostra : modalidadesComp;
+      
+      return (
+        <div key={f.id} className="space-y-1">
+          <Label className="text-foreground font-sans">{f.label} *</Label>
+          <Select 
+            value={currentModalidade} 
+            onValueChange={v => {
+              if (tipoInscricao === 'mostra') setModalidadeMostra(v);
+              else setModalidade(v);
+              const m = currentModalidades.find(x => x.nome === v);
+              if (m?.faixa_etaria) setFaixaEtaria(m.faixa_etaria);
+            }}
+          >
+            <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+            <SelectContent>
+              {currentModalidades.map(m => (
+                <SelectItem key={m.id} value={m.nome}>
+                  {m.nome} {m.horario ? `· ${m.horario}` : ''} {m.faixa_etaria ? `(${m.faixa_etaria})` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {currentModalidades.length === 0 && (
+            <p className="text-[10px] text-muted-foreground mt-1 font-sans italic">Defina o período para ver as opções.</p>
+          )}
+        </div>
+      );
+    }
+
+    if (f.name === 'categoria') {
+      return (
+        <div key={f.id} className="space-y-1">
+          <Label className="text-foreground font-sans">{f.label} *</Label>
+          <Select value={categoria} onValueChange={v => { setCategoria(v as CategoriaType); setParticipantes([]); }}>
+            <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {CATEGORIAS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    }
+
+    if (f.name === 'nome_coreografia') {
+      const val = tipoInscricao === 'mostra' ? nomeCoreografiaMostra : nomeCoreografia;
+      return (
+        <div key={f.id} className="space-y-1">
+          <Label className="text-foreground font-sans">{f.label} *</Label>
+          <Input 
+            value={val} 
+            onChange={e => tipoInscricao === 'mostra' ? setNomeCoreografiaMostra(e.target.value) : setNomeCoreografia(e.target.value)} 
+            className="bg-background border-border text-foreground" 
+          />
+        </div>
+      );
+    }
+
+    if (f.name === 'tipo_musica') {
+        const val = tipoInscricao === 'mostra' ? tipoMusicaMostra : tipoMusica;
+        return (
+          <div key={f.id} className="space-y-3 p-3 bg-muted/20 rounded-lg">
+            <Label className="text-foreground font-sans text-xs font-bold uppercase">{f.label} *</Label>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2 cursor-pointer font-sans text-sm">
+                <input type="radio" checked={val === 'solta'} onChange={() => tipoInscricao === 'mostra' ? setTipoMusicaMostra('solta') : setTipoMusica('solta')} className="accent-primary" /> Música solta
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer font-sans text-sm">
+                <input type="radio" checked={val === 'posicionada'} onChange={() => tipoInscricao === 'mostra' ? setTipoMusicaMostra('posicionada') : setTipoMusica('posicionada')} className="accent-primary" /> Música posicionada
+              </label>
+            </div>
+          </div>
+        );
+    }
+
+    if (f.name === 'tipo_participacao') {
+       return (
+         <div key={f.id} className="space-y-1">
+           <Label className="text-foreground font-sans">{f.label} *</Label>
+           <Select value={tipoParticipacao} onValueChange={setTipoParticipacao}>
+             <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+             <SelectContent>
+               {TIPO_PARTICIPACAO_MOSTRA.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+             </SelectContent>
+           </Select>
+         </div>
+       );
+    }
+
+    if (f.name === 'tipo_compra') {
+       return (
+         <div key={f.id} className="space-y-1">
+           <Label className="text-foreground font-sans">{f.label} *</Label>
+           <Select value={tipoCompraWorkshop} onValueChange={v => setTipoCompraWorkshop(v as TipoCompraWorkshop)}>
+             <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+             <SelectContent>
+               {WORKSHOP_TIPO_COMPRA.map(t => (
+                 <SelectItem key={t.value} value={t.value}>
+                   {t.label} {loteAtualWorkshop ? `— R$ ${(loteAtualWorkshop as any)[`preco_${t.value}`]?.toFixed(2) || ''}` : ''}
+                 </SelectItem>
+               ))}
+             </SelectContent>
+           </Select>
+         </div>
+       );
+    }
+
+    if (f.name === 'workshops') {
+       return (
+         <div key={f.id} className="space-y-2">
+           <Label className="text-foreground font-sans">{f.label} *</Label>
+           <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+             {workshopsDisponiveis.map(w => (
+               <button
+                 key={w.id} type="button" onClick={() => toggleWorkshop(w.id)}
+                 className={`w-full text-left p-3 rounded-lg border transition-all ${workshopsSelecionados.includes(w.id) ? 'border-gold bg-primary/10' : 'border-border bg-background hover:border-gold/40'}`}
+               >
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <p className="font-medium text-foreground font-sans text-xs">{w.nome}</p>
+                     <p className="text-[10px] text-muted-foreground font-sans">{w.professor} · {w.horario}</p>
+                   </div>
+                   {workshopsSelecionados.includes(w.id) && <div className="w-4 h-4 rounded-full bg-gradient-gold flex items-center justify-center"><span className="text-white text-[10px]">✓</span></div>}
+                 </div>
+               </button>
+             ))}
+           </div>
+         </div>
+       );
+    }
+
+    // Default dynamic field rendering
+    return (
+      <div key={f.id} className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-300">
+        {f.type !== 'checkbox' && <Label className="text-foreground font-sans">{f.label} {f.required ? '*' : ''}</Label>}
+        {f.type === 'text' || f.type === 'email' || f.type === 'number' || f.type === 'date' ? (
+          <Input 
+            type={f.type} required={f.required} placeholder={f.placeholder || ''}
+            value={dadosAdicionais[f.name] || ''} 
+            onChange={e => setDadosAdicionais({ ...dadosAdicionais, [f.name]: e.target.value })} 
+            className="bg-background border-border text-foreground" 
+          />
+        ) : f.type === 'select' ? (
+          <Select value={dadosAdicionais[f.name] || ''} onValueChange={v => setDadosAdicionais({ ...dadosAdicionais, [f.name]: v })}>
+            <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+            <SelectContent>{f.options?.map((o: string) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+          </Select>
+        ) : f.type === 'checkbox' ? (
+          <div className="flex items-center space-x-2 pt-1 border border-border/50 p-2 rounded-lg bg-background/50">
+            <Checkbox id={f.id} checked={!!dadosAdicionais[f.name]} onCheckedChange={v => setDadosAdicionais({ ...dadosAdicionais, [f.name]: !!v })} />
+            <label htmlFor={f.id} className="text-sm font-sans text-foreground cursor-pointer shrink-0">{f.label} {f.required ? '*' : ''}</label>
+          </div>
+        ) : f.type === 'radio' ? (
+          <div className="space-y-2 mt-2 p-3 bg-muted/30 rounded-lg">
+            <p className="text-xs font-bold text-muted-foreground mb-2">{f.label}</p>
+            {f.options?.map((o: string) => (
+              <div key={o} className="flex items-center space-x-2">
+                <input type="radio" id={`${f.id}-${o}`} name={f.name} value={o} checked={dadosAdicionais[f.name] === o} onChange={e => setDadosAdicionais({ ...dadosAdicionais, [f.name]: e.target.value })} className="accent-primary w-4 h-4" />
+                <label htmlFor={`${f.id}-${o}`} className="text-sm font-sans text-foreground cursor-pointer">{o}</label>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderFormStep2 = () => {
+    const config = formConfigs.find(c => c.tipo_inscricao === tipoInscricao);
+    if (!config || !config.fields) return <p className="text-center py-8 text-muted-foreground">Configuração não encontrada.</p>;
+    let fields = typeof config.fields === 'string' ? JSON.parse(config.fields) : config.fields;
+    const visibleFields = getVisibleFields(fields);
 
     return (
-      <div className="pt-4 border-t border-border mt-4 space-y-4">
-        <h3 className="font-serif text-lg text-foreground">Campos Específicos</h3>
-        {fields.map((f: any) => (
-          <div key={f.id} className="space-y-1">
-            {f.type !== 'checkbox' && (
-              <Label className="text-foreground font-sans">{f.label} {f.required ? '*' : ''}</Label>
-            )}
-            
-            {f.type === 'text' || f.type === 'email' || f.type === 'number' || f.type === 'date' ? (
-              <Input 
-                type={f.type} 
-                required={f.required} 
-                value={dadosAdicionais[f.name] || ''} 
-                onChange={e => setDadosAdicionais({ ...dadosAdicionais, [f.name]: e.target.value })} 
-                className="bg-background border-border text-foreground" 
-              />
-            ) : f.type === 'select' ? (
-              <Select 
-                value={dadosAdicionais[f.name] || ''} 
-                onValueChange={v => setDadosAdicionais({ ...dadosAdicionais, [f.name]: v })}
-              >
-                <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>
-                  {f.options?.map((o: string) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            ) : f.type === 'checkbox' ? (
-              <div className="flex items-center space-x-2 pt-1">
-                <Checkbox 
-                  id={f.id} 
-                  checked={!!dadosAdicionais[f.name]} 
-                  onCheckedChange={v => setDadosAdicionais({ ...dadosAdicionais, [f.name]: !!v })} 
-                />
-                <label htmlFor={f.id} className="text-sm font-sans text-foreground cursor-pointer shrink-0">{f.label} {f.required ? '*' : ''}</label>
-              </div>
-            ) : f.type === 'radio' ? (
-              <div className="space-y-2 mt-2">
-                {f.options?.map((o: string) => (
-                  <div key={o} className="flex items-center space-x-2">
-                    <input 
-                      type="radio" 
-                      id={`${f.id}-${o}`} 
-                      name={f.name} 
-                      value={o}
-                      checked={dadosAdicionais[f.name] === o}
-                      onChange={e => setDadosAdicionais({ ...dadosAdicionais, [f.name]: e.target.value })}
-                      className="accent-primary"
-                    />
-                    <label htmlFor={`${f.id}-${o}`} className="text-sm font-sans text-foreground cursor-pointer">{o}</label>
-                  </div>
-                ))}
-              </div>
-            ) : null}
+      <Card className="bg-card border-border shadow-lg">
+        <CardHeader>
+           <CardTitle className="font-serif text-foreground text-xl flex items-center gap-2">
+             {tipoInscricao === 'competicao' && <Trophy className="w-5 h-5 text-gold-light" />}
+             {tipoInscricao === 'mostra' && <Star className="w-5 h-5 text-burgundy" />}
+             {tipoInscricao === 'workshop' && <BookOpen className="w-5 h-5 text-primary" />}
+             2. Detalhes da Participação
+           </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+           {visibleFields.map(f => renderField(f))}
+           
+           {tipoInscricao === 'mostra' && (
+             <div className="p-4 bg-primary/5 border border-gold/20 rounded-lg text-sm font-sans text-foreground flex items-start gap-3">
+               <span className="text-lg">🎟️</span>
+               <p><strong>Incluso na inscrição:</strong> Ingresso para o dia todo (9h até 18:30). Para o show de gala, adquira via Sympla.</p>
+             </div>
+           )}
+
+           <div className="flex gap-3 pt-4 border-t border-border mt-4">
+            <Button variant="outline" onClick={() => setStep(1)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
+            <Button onClick={() => { if (!canProceedStep2()) { toast({ title: 'Preencha os campos obrigatórios', variant: 'destructive' }); return; } setStep(3); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans shadow-md">Próximo</Button>
           </div>
-        ))}
-      </div>
+        </CardContent>
+      </Card>
     );
   };
 
@@ -528,167 +709,8 @@ const Inscricao = () => {
           </Card>
         )}
 
-        {/* ─── STEP 2: Detalhes por tipo ────────────────────────────────── */}
-        {step === 2 && tipoInscricao === 'competicao' && (
-          <Card className="bg-card border-border">
-            <CardHeader><CardTitle className="font-serif text-foreground">2. Detalhes da Apresentação</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="text-foreground font-sans">Período *</Label>
-                <Select value={periodo} onValueChange={setPeriodo}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Modalidade *</Label>
-                <Select value={modalidade} onValueChange={v => { setModalidade(v); const m = modalidadesComp.find(x => x.nome === v); if (m?.faixa_etaria) setFaixaEtaria(m.faixa_etaria); }}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>
-                    {modalidadesComp.map(m => <SelectItem key={m.id} value={m.nome}>{m.nome} {m.horario ? `· ${m.horario}` : ''} {m.faixa_etaria ? `(${m.faixa_etaria})` : ''}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {modalidadesComp.length === 0 && <p className="text-xs text-muted-foreground mt-1 font-sans">Selecione o período acima para ver as modalidades disponíveis.</p>}
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Faixa Etária</Label>
-                <Input value={faixaEtaria} onChange={e => setFaixaEtaria(e.target.value)} placeholder="Ex: 12 a 17 anos" className="bg-background border-border text-foreground" />
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Categoria *</Label>
-                <Select value={categoria} onValueChange={v => { setCategoria(v as CategoriaType); setParticipantes([]); }}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIAS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Nome da Coreografia *</Label>
-                <Input value={nomeCoreografia} onChange={e => setNomeCoreografia(e.target.value)} className="bg-background border-border text-foreground" />
-              </div>
-
-              {renderDynamicFields('competicao')}
-
-              <div className="flex gap-3 pt-2 mt-6">
-                <Button variant="outline" onClick={() => setStep(1)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
-                <Button onClick={() => { if (!canProceedStep2()) { toast({ title: 'Preencha os campos obrigatórios', variant: 'destructive' }); return; } setStep(3); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {step === 2 && tipoInscricao === 'mostra' && (
-          <Card className="bg-card border-border">
-            <CardHeader><CardTitle className="font-serif text-foreground">2. Detalhes da Mostra</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="text-foreground font-sans">Tipo de Participação *</Label>
-                <Select value={tipoParticipacao} onValueChange={setTipoParticipacao}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {TIPO_PARTICIPACAO_MOSTRA.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Categoria *</Label>
-                <Select value={categoria} onValueChange={v => { setCategoria(v as CategoriaType); setParticipantes([]); }}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIAS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Modalidade de Mostra *</Label>
-                <Select value={modalidadeMostra} onValueChange={v => { setModalidadeMostra(v); const m = modalidadesMostra.find(x => x.nome === v); if (m?.faixa_etaria) setFaixaEtaria(m.faixa_etaria); }}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>
-                    {modalidadesMostra.map(m => <SelectItem key={m.id} value={m.nome}>{m.nome} {m.horario ? `· ${m.horario}` : ''} {m.faixa_etaria ? `(${m.faixa_etaria})` : ''}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {modalidadesMostra.length === 0 && <p className="text-xs text-muted-foreground mt-1 font-sans">Selecione o período acima para ver as modalidades disponíveis.</p>}
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Faixa Etária</Label>
-                <Input value={faixaEtaria} onChange={e => setFaixaEtaria(e.target.value)} placeholder="Ex: 12 a 17 anos" className="bg-background border-border text-foreground" />
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Nome da Coreografia *</Label>
-                <Input value={nomeCoreografiaMostra} onChange={e => setNomeCoreografiaMostra(e.target.value)} className="bg-background border-border text-foreground" />
-              </div>
-              {renderDynamicFields('mostra')}
-              <div className="p-4 bg-primary/5 border border-gold/20 rounded-lg text-sm font-sans text-foreground">
-                🎟️ <strong>Incluso na inscrição:</strong> Ingresso para o dia todo (9h até 18:30). Para o show de gala e premiações, adquira ingresso via Sympla.
-              </div>
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" onClick={() => setStep(1)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
-                <Button onClick={() => { if (!canProceedStep2()) { toast({ title: 'Preencha os campos obrigatórios', variant: 'destructive' }); return; } setStep(3); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {step === 2 && tipoInscricao === 'workshop' && (
-          <Card className="bg-card border-border">
-            <CardHeader><CardTitle className="font-serif text-foreground">2. Escolha dos Workshops</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="text-foreground font-sans mb-3 block">Tipo de Compra *</Label>
-                <Select value={tipoCompraWorkshop} onValueChange={v => setTipoCompraWorkshop(v as TipoCompraWorkshop)}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {WORKSHOP_TIPO_COMPRA.map(t => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label} {loteAtualWorkshop ? `— R$ ${(loteAtualWorkshop as any)[`preco_${t.value.replace('pacote_completo', 'pacote_completo').replace('_aula', '_aula').replace('_aulas', '_aulas')}`]?.toFixed(2) || ''}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-foreground font-sans mb-3 block">Workshops Disponíveis *</Label>
-                <div className="space-y-2">
-                  {workshopsDisponiveis.map(w => (
-                    <button
-                      key={w.id}
-                      type="button"
-                      onClick={() => toggleWorkshop(w.id)}
-                      className={`w-full text-left p-3 rounded-lg border transition-all ${workshopsSelecionados.includes(w.id) ? 'border-gold bg-primary/10' : 'border-border bg-background hover:border-gold/40'}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-foreground font-sans text-sm">{w.nome}</p>
-                          <p className="text-xs text-muted-foreground font-sans">{w.professor} · {w.periodo === 'manha' ? '☀️ Manhã' : '🌇 Tarde'} {w.horario && `· ${w.horario}`}</p>
-                        </div>
-                        {workshopsSelecionados.includes(w.id) && (
-                          <div className="w-5 h-5 rounded-full bg-gradient-gold flex items-center justify-center shrink-0">
-                            <span className="text-white text-xs">✓</span>
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                {workshopsSelecionados.length > 0 && (
-                  <p className="text-xs text-primary mt-2 font-sans">{workshopsSelecionados.length} workshop(s) selecionado(s)</p>
-                )}
-              </div>
-              {renderDynamicFields('workshop')}
-              <div className="flex items-center space-x-2 pt-4">
-                <Checkbox id="harem_w" checked={extraHarem} onCheckedChange={v => setExtraHarem(!!v)} />
-                <label htmlFor="harem_w" className="text-sm font-sans text-foreground cursor-pointer">Participar do Harem das Fadas?</label>
-              </div>
-              <div className="flex gap-3 pt-2 mt-4">
-                <Button variant="outline" onClick={() => setStep(1)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
-                <Button onClick={() => { if (!canProceedStep2()) { toast({ title: 'Selecione ao menos 1 workshop', variant: 'destructive' }); return; } setStep(3); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* ─── STEP 2: Detalhes por tipo (Agora Dinâmico) ──────────────── */}
+        {step === 2 && renderFormStep2()}
 
         {/* ─── STEP 3: Participantes ─────────────────────────────────────── */}
         {step === 3 && tipoInscricao !== 'workshop' && (
