@@ -82,9 +82,31 @@ const AdminIngressos = () => {
   };
 
   const updateStatus = async (id: string, status: string) => {
-    await (supabase.from('ingressos_vendidos') as any).update({ status }).eq('id', id);
-    toast({ title: '✅ Status atualizado' });
-    loadData();
+    try {
+      if (status === 'confirmado') {
+        const ingresso = vendidos.find(v => v.id === id);
+        const lote = lotes.find(l => l.id === ingresso?.lote_ingresso_id);
+        if (ingresso) {
+          // Fire and forget edge function
+          supabase.functions.invoke('send-ticket', {
+            body: {
+              email: ingresso.email,
+              nome_comprador: ingresso.nome_comprador,
+              quantidade: ingresso.quantidade,
+              tipo_ingresso_nome: lote?.nome || 'Ingresso FADDA',
+              ingresso_id: ingresso.id,
+              valor_total: ingresso.valor_total
+            }
+          }).catch(console.error);
+        }
+      }
+
+      await (supabase.from('ingressos_vendidos') as any).update({ status }).eq('id', id);
+      toast({ title: '✅ Status atualizado' });
+      loadData();
+    } catch (e: any) {
+      toast({ title: 'Erro ao atualizar', description: e.message, variant: 'destructive' });
+    }
   };
 
   const exportCSV = () => {

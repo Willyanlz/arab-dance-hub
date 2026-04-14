@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Download, Check, Search, Eye, X, Edit2, Users, Trophy, Star, BookOpen, UserPlus, Ticket, DollarSign } from 'lucide-react';
+import { ArrowLeft, Download, Check, Search, Eye, X, Edit2, Users, Trophy, Star, BookOpen, UserPlus, Ticket, DollarSign, QrCode } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, string> = {
   pendente: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -39,6 +39,7 @@ const Admin = () => {
   const [inscricoes, setInscricoes] = useState<any[]>([]);
   const [filtroTipo, setFiltroTipo] = useState('all');
   const [filtroStatus, setFiltroStatus] = useState('all');
+  const [filtroAno, setFiltroAno] = useState(new Date().getFullYear().toString());
   const [busca, setBusca] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -50,6 +51,8 @@ const Admin = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editStatus, setEditStatus] = useState('');
+  const [editCoreografia, setEditCoreografia] = useState('');
+  const [editModalidade, setEditModalidade] = useState('');
   const [editObs, setEditObs] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -134,7 +137,12 @@ const Admin = () => {
   const saveEdits = async () => {
     if (!selected) return;
     setSaving(true);
-    await supabase.from('inscricoes').update({ status: editStatus as any, observacoes: editObs }).eq('id', selected.id);
+    await supabase.from('inscricoes').update({ 
+      status: editStatus as any, 
+      observacoes: editObs,
+      nome_coreografia: editCoreografia,
+      modalidade: editModalidade
+    }).eq('id', selected.id);
     toast({ title: '✅ Inscrição atualizada' });
     setEditMode(false);
     setSaving(false);
@@ -145,6 +153,8 @@ const Admin = () => {
     setSelected(insc);
     setEditStatus(insc.status);
     setEditObs(insc.observacoes || '');
+    setEditCoreografia(insc.nome_coreografia || '');
+    setEditModalidade(insc.modalidade || '');
     setEditMode(false);
     setDetailOpen(true);
   };
@@ -152,6 +162,10 @@ const Admin = () => {
   const filteredInscricoes = inscricoes.filter(i => {
     if (filtroTipo !== 'all' && i.tipo_inscricao !== filtroTipo) return false;
     if (filtroStatus !== 'all' && i.status !== filtroStatus) return false;
+    if (filtroAno !== 'all') {
+      const year = new Date(i.created_at).getFullYear().toString();
+      if (year !== filtroAno) return false;
+    }
     if (busca) {
       const s = busca.toLowerCase();
       return (
@@ -242,6 +256,9 @@ const Admin = () => {
             </Button>
             <Button asChild variant="outline" size="sm" className="border-border text-foreground font-sans">
               <Link to="/admin/ingressos">🎫 Ingressos</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="border-border text-foreground font-sans">
+              <Link to="/admin/scanner"><QrCode className="w-4 h-4 mr-1" /> Scanner</Link>
             </Button>
             <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground font-sans">Sair</Button>
           </div>
@@ -356,6 +373,15 @@ const Admin = () => {
                   <SelectItem value="pago">Pago</SelectItem>
                   <SelectItem value="confirmado">Confirmado</SelectItem>
                   <SelectItem value="cancelado">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filtroAno} onValueChange={setFiltroAno}>
+                <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Ano" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os anos</SelectItem>
+                  <SelectItem value="2026">2026</SelectItem>
+                  <SelectItem value="2027">2027</SelectItem>
+                  <SelectItem value="2028">2028</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -550,6 +576,18 @@ const Admin = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  {(selected.tipo_inscricao === 'competicao' || selected.tipo_inscricao === 'mostra') && (
+                    <>
+                      <div>
+                        <Label className="text-foreground">Modalidade</Label>
+                        <Input value={editModalidade} onChange={e => setEditModalidade(e.target.value)} className="bg-background border-border text-foreground" />
+                      </div>
+                      <div>
+                        <Label className="text-foreground">Nome da Coreografia</Label>
+                        <Input value={editCoreografia} onChange={e => setEditCoreografia(e.target.value)} className="bg-background border-border text-foreground" />
+                      </div>
+                    </>
+                  )}
                   <div>
                     <Label className="text-foreground">Observações</Label>
                     <Textarea value={editObs} onChange={e => setEditObs(e.target.value)} className="bg-background border-border text-foreground" />

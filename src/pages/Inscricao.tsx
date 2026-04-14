@@ -97,6 +97,10 @@ const Inscricao = () => {
   const [termosTexto, setTermosTexto] = useState<Record<string, string>>({});
   const [inscricoesAbertas, setInscricoesAbertas] = useState<Record<string, boolean>>({});
   const [faixaEtaria, setFaixaEtaria] = useState('');
+  
+  // Dynamic Forms
+  const [formConfigs, setFormConfigs] = useState<any[]>([]);
+  const [dadosAdicionais, setDadosAdicionais] = useState<Record<string, any>>({});
 
   // ── Profile fields ────────────────────────────────────────────────────────
   const [cpf, setCpf] = useState('');
@@ -175,6 +179,7 @@ const Inscricao = () => {
         { data: termosData },
         { data: profileData },
         { data: modalidadesData },
+        { data: formConfigData },
       ] = await Promise.all([
         supabase.from('lotes').select('*').order('numero'),
         (supabase.from('lotes_mostra') as any).select('*').order('numero'),
@@ -184,7 +189,10 @@ const Inscricao = () => {
         (supabase.from('termos_config') as any).select('tipo,conteudo'),
         supabase.from('profiles').select('cpf,telefone,is_aluna_jalilete,participante_anterior').eq('user_id', user.id).single(),
         (supabase.from('modalidades_config') as any).select('*').eq('ativo', true).order('ordem'),
+        supabase.from('form_config').select('*'),
       ]);
+
+      if (formConfigData) setFormConfigs(formConfigData);
 
       if (lotesData) { setLotes(lotesData as any); setLoteAtual(getLoteAtual(lotesData as any)); }
       if (lotesMostraData) { setLotesMostra(lotesMostraData as any); setLoteAtualMostra(getLoteAtual(lotesMostraData as any)); }
@@ -259,6 +267,7 @@ const Inscricao = () => {
         como_soube: comoSoube || null,
         observacoes: observacoes || null,
         faixa_etaria: faixaEtaria || null,
+        dados_adicionais: dadosAdicionais,
       };
 
       let inscData: Record<string, any> = baseData;
@@ -333,14 +342,89 @@ const Inscricao = () => {
 
   // ── Validate steps ────────────────────────────────────────────────────────
   const canProceedStep2 = () => {
-    if (tipoInscricao === 'competicao') return !!modalidade && !!nomeCoreografia;
-    if (tipoInscricao === 'mostra') return !!modalidadeMostra && !!nomeCoreografiaMostra;
-    if (tipoInscricao === 'workshop') return workshopsSelecionados.length > 0 && !!tipoCompraWorkshop;
+    // validate dynamic required
+    const config = formConfigs.find(c => c.tipo_inscricao === tipoInscricao);
+    let dynamicValid = true;
+    if (config && config.fields) {
+      let fields = typeof config.fields === 'string' ? JSON.parse(config.fields) : config.fields;
+      dynamicValid = fields.every((f: any) => !f.required || (!!dadosAdicionais[f.name] && dadosAdicionais[f.name].toString().trim().length > 0));
+    }
+
+    if (tipoInscricao === 'competicao') return !!modalidade && !!nomeCoreografia && dynamicValid;
+    if (tipoInscricao === 'mostra') return !!modalidadeMostra && !!nomeCoreografiaMostra && dynamicValid;
+    if (tipoInscricao === 'workshop') return workshopsSelecionados.length > 0 && !!tipoCompraWorkshop && dynamicValid;
     return false;
   };
 
   const canSubmit = () => {
     return termosAceitos;
+  };
+
+  const renderDynamicFields = (tipo: string) => {
+    const config = formConfigs.find(c => c.tipo_inscricao === tipo);
+    if (!config || !config.fields) return null;
+    let fields = config.fields;
+    if (typeof fields === 'string') fields = JSON.parse(fields);
+    if (!Array.isArray(fields) || fields.length === 0) return null;
+
+    return (
+      <div className="pt-4 border-t border-border mt-4 space-y-4">
+        <h3 className="font-serif text-lg text-foreground">Campos Específicos</h3>
+        {fields.map((f: any) => (
+          <div key={f.id} className="space-y-1">
+            {f.type !== 'checkbox' && (
+              <Label className="text-foreground font-sans">{f.label} {f.required ? '*' : ''}</Label>
+            )}
+            
+            {f.type === 'text' || f.type === 'email' || f.type === 'number' || f.type === 'date' ? (
+              <Input 
+                type={f.type} 
+                required={f.required} 
+                value={dadosAdicionais[f.name] || ''} 
+                onChange={e => setDadosAdicionais({ ...dadosAdicionais, [f.name]: e.target.value })} 
+                className="bg-background border-border text-foreground" 
+              />
+            ) : f.type === 'select' ? (
+              <Select 
+                value={dadosAdicionais[f.name] || ''} 
+                onValueChange={v => setDadosAdicionais({ ...dadosAdicionais, [f.name]: v })}
+              >
+                <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {f.options?.map((o: string) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            ) : f.type === 'checkbox' ? (
+              <div className="flex items-center space-x-2 pt-1">
+                <Checkbox 
+                  id={f.id} 
+                  checked={!!dadosAdicionais[f.name]} 
+                  onCheckedChange={v => setDadosAdicionais({ ...dadosAdicionais, [f.name]: !!v })} 
+                />
+                <label htmlFor={f.id} className="text-sm font-sans text-foreground cursor-pointer shrink-0">{f.label} {f.required ? '*' : ''}</label>
+              </div>
+            ) : f.type === 'radio' ? (
+              <div className="space-y-2 mt-2">
+                {f.options?.map((o: string) => (
+                  <div key={o} className="flex items-center space-x-2">
+                    <input 
+                      type="radio" 
+                      id={`${f.id}-${o}`} 
+                      name={f.name} 
+                      value={o}
+                      checked={dadosAdicionais[f.name] === o}
+                      onChange={e => setDadosAdicionais({ ...dadosAdicionais, [f.name]: e.target.value })}
+                      className="accent-primary"
+                    />
+                    <label htmlFor={`${f.id}-${o}`} className="text-sm font-sans text-foreground cursor-pointer">{o}</label>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   // ── Render loading ────────────────────────────────────────────────────────
@@ -485,29 +569,10 @@ const Inscricao = () => {
                 <Label className="text-foreground font-sans">Nome da Coreografia *</Label>
                 <Input value={nomeCoreografia} onChange={e => setNomeCoreografia(e.target.value)} className="bg-background border-border text-foreground" />
               </div>
-              <div>
-                <Label className="text-foreground font-sans">Nome da Escola</Label>
-                <Input value={nomeEscola} onChange={e => setNomeEscola(e.target.value)} className="bg-background border-border text-foreground" />
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Nome da Professora</Label>
-                <Input value={professora} onChange={e => setProfessora(e.target.value)} className="bg-background border-border text-foreground" />
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Nome Artístico</Label>
-                <Input value={nomeArtistico} onChange={e => setNomeArtistico(e.target.value)} className="bg-background border-border text-foreground" />
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Tipo de Música</Label>
-                <Select value={tipoMusica} onValueChange={v => setTipoMusica(v as any)}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="solta">Solta</SelectItem>
-                    <SelectItem value="posicionada">Marcada / Posicionada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-3 pt-2">
+
+              {renderDynamicFields('competicao')}
+
+              <div className="flex gap-3 pt-2 mt-6">
                 <Button variant="outline" onClick={() => setStep(1)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
                 <Button onClick={() => { if (!canProceedStep2()) { toast({ title: 'Preencha os campos obrigatórios', variant: 'destructive' }); return; } setStep(3); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
               </div>
@@ -555,38 +620,7 @@ const Inscricao = () => {
                 <Label className="text-foreground font-sans">Nome da Coreografia *</Label>
                 <Input value={nomeCoreografiaMostra} onChange={e => setNomeCoreografiaMostra(e.target.value)} className="bg-background border-border text-foreground" />
               </div>
-              <div>
-                <Label className="text-foreground font-sans">Nome da Escola</Label>
-                <Input value={nomeEscola} onChange={e => setNomeEscola(e.target.value)} className="bg-background border-border text-foreground" />
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Nome da Professora</Label>
-                <Input value={professora} onChange={e => setProfessora(e.target.value)} className="bg-background border-border text-foreground" />
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Tipo de Música</Label>
-                <Select value={tipoMusicaMostra} onValueChange={v => setTipoMusicaMostra(v as any)}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="solta">Solta</SelectItem>
-                    <SelectItem value="posicionada">Marcada / Posicionada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Preferência de Período</Label>
-                <Select value={periodoMostra} onValueChange={setPeriodoMostra}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manha">Manhã</SelectItem>
-                    <SelectItem value="tarde">Tarde</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Sugestão de Horário</Label>
-                <Input value={sugestaoHorario} onChange={e => setSugestaoHorario(e.target.value)} placeholder="Ex: 14:30" className="bg-background border-border text-foreground" />
-              </div>
+              {renderDynamicFields('mostra')}
               <div className="p-4 bg-primary/5 border border-gold/20 rounded-lg text-sm font-sans text-foreground">
                 🎟️ <strong>Incluso na inscrição:</strong> Ingresso para o dia todo (9h até 18:30). Para o show de gala e premiações, adquira ingresso via Sympla.
               </div>
@@ -643,11 +677,12 @@ const Inscricao = () => {
                   <p className="text-xs text-primary mt-2 font-sans">{workshopsSelecionados.length} workshop(s) selecionado(s)</p>
                 )}
               </div>
-              <div className="flex items-center space-x-2">
+              {renderDynamicFields('workshop')}
+              <div className="flex items-center space-x-2 pt-4">
                 <Checkbox id="harem_w" checked={extraHarem} onCheckedChange={v => setExtraHarem(!!v)} />
                 <label htmlFor="harem_w" className="text-sm font-sans text-foreground cursor-pointer">Participar do Harem das Fadas?</label>
               </div>
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 pt-2 mt-4">
                 <Button variant="outline" onClick={() => setStep(1)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
                 <Button onClick={() => { if (!canProceedStep2()) { toast({ title: 'Selecione ao menos 1 workshop', variant: 'destructive' }); return; } setStep(3); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
               </div>

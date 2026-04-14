@@ -37,17 +37,9 @@ const Ingressos = () => {
   const [termos, setTermos] = useState(false);
   const [pixInfo, setPixInfo] = useState({ chave: 'fadda@festival.com.br', banco: 'Nubank' });
 
-  // Auth wall
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/login?redirect=/ingressos');
-    }
-  }, [user, authLoading, navigate]);
+  // Removed strict auth wall so public can view tickets
 
   useEffect(() => {
-    if (!user) return;
-    setEmail(user.email || '');
-
     Promise.all([
       supabase.from('tipos_ingresso').select('*').eq('ativo', true),
       supabase.from('site_config').select('*').in('chave', ['evento_pix', 'pix_chave', 'pix_banco']),
@@ -65,7 +57,11 @@ const Ingressos = () => {
       }
       setLoading(false);
     });
+  }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    setEmail(user.email || '');
     // Pre-fill profile
     supabase.from('profiles').select('nome, cpf, telefone').eq('user_id', user.id).single().then(({ data }) => {
       if (data) {
@@ -79,6 +75,15 @@ const Ingressos = () => {
   const precoFinal = () => {
     if (!selectedTipo) return 0;
     return selectedTipo.preco * quantidade;
+  };
+
+  const handleOpenForm = () => {
+    if (!user) {
+      toast({ title: 'Login Necessário', description: 'Você precisa estar logado para comprar ingressos.' });
+      navigate('/login?redirect=/ingressos');
+      return;
+    }
+    setShowForm(true);
   };
 
   const handleCompra = async () => {
@@ -115,15 +120,6 @@ const Ingressos = () => {
       setSubmitting(false);
     }
   };
-
-  if (authLoading || !user) return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center space-y-3">
-        <Lock className="w-10 h-10 text-primary mx-auto" />
-        <p className="text-muted-foreground font-sans">Redirecionando para login...</p>
-      </div>
-    </div>
-  );
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Carregando...</p></div>;
 
@@ -195,7 +191,7 @@ const Ingressos = () => {
                     <span className="font-sans text-foreground">{quantidade} ingresso{quantidade > 1 ? 's' : ''}</span>
                     <span className="font-bold text-xl text-primary font-sans">Total: R$ {precoFinal().toFixed(2)}</span>
                   </div>
-                  <Button onClick={() => setShowForm(true)} className="w-full bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans shimmer">
+                  <Button onClick={handleOpenForm} className="w-full bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans shimmer">
                     <ShoppingCart className="w-4 h-4 mr-2" /> Comprar Agora
                   </Button>
                 </CardContent>

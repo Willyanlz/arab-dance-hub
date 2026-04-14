@@ -5,10 +5,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Plus, User } from 'lucide-react';
+import { LogOut, Plus, User, Ticket } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
+import { QRCodeSVG } from 'qrcode.react';
 
 type Inscricao = Database['public']['Tables']['inscricoes']['Row'];
+type IngressoVendido = Database['public']['Tables']['ingressos_vendidos']['Row'] & { tipos_ingresso?: { nome: string } };
 
 const statusColors: Record<string, string> = {
   pendente: 'bg-yellow-100 text-yellow-800',
@@ -21,16 +23,20 @@ const Dashboard = () => {
   const { user, loading: authLoading, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [inscricoes, setInscricoes] = useState<Inscricao[]>([]);
+  const [ingressos, setIngressos] = useState<IngressoVendido[]>([]);
   const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/login');
-  }, [user, authLoading]);
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (!user) return;
     supabase.from('inscricoes').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).then(({ data }) => {
       if (data) setInscricoes(data);
+    });
+    supabase.from('ingressos_vendidos').select('*, tipos_ingresso(nome)').eq('user_id', user.id).order('created_at', { ascending: false }).then(({ data }) => {
+      if (data) setIngressos(data as any);
     });
     supabase.from('profiles').select('*').eq('user_id', user.id).single().then(({ data }) => {
       if (data) setProfile(data);
@@ -88,6 +94,64 @@ const Dashboard = () => {
                       <Badge className={statusColors[insc.status] || 'bg-muted text-foreground'}>{insc.status.charAt(0).toUpperCase() + insc.status.slice(1)}</Badge>
                       <p className="text-lg font-bold text-primary mt-2 font-sans">R$ {Number(insc.valor_final || 0).toFixed(2)}</p>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        <div className="flex justify-between items-center mt-12 mb-8">
+          <h2 className="text-2xl font-serif font-bold text-foreground">Meus Ingressos</h2>
+          <Button asChild variant="outline" className="border-border text-foreground font-sans">
+            <Link to="/ingressos"><Ticket className="w-4 h-4 mr-2" /> Comprar Ingressos</Link>
+          </Button>
+        </div>
+
+        {ingressos.length === 0 ? (
+          <Card className="bg-card border-border">
+            <CardContent className="p-12 text-center">
+              <p className="text-muted-foreground font-sans mb-4">Você ainda não comprou ingressos.</p>
+              <Button asChild className="bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">
+                <Link to="/ingressos">Ver Ingressos Disponíveis</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {ingressos.map(ing => (
+              <Card key={ing.id} className="bg-card border-border overflow-hidden">
+                <div className="bg-gradient-gold px-4 py-2 flex justify-between items-center">
+                  <span className="font-bold text-primary-foreground font-serif">{ing.tipos_ingresso?.nome}</span>
+                  <Badge className="bg-white/20 text-white border-0">
+                    {ing.status.charAt(0).toUpperCase() + ing.status.slice(1)}
+                  </Badge>
+                </div>
+                <CardContent className="p-6 flex flex-col items-center">
+                  {ing.status === 'confirmado' ? (
+                    <div className="bg-white p-2 rounded-lg mb-4">
+                      <QRCodeSVG value={btoa(ing.id)} size={150} />
+                    </div>
+                  ) : (
+                    <div className="w-[150px] h-[150px] bg-muted flex items-center justify-center rounded-lg mb-4 border border-dashed border-border text-center p-4">
+                      <span className="text-xs text-muted-foreground font-sans">QR Code disponível após confirmação</span>
+                    </div>
+                  )}
+                  
+                  <div className="w-full space-y-2 mt-2 border-t border-border pt-4">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground font-sans">Quantidade:</span>
+                      <span className="font-bold text-foreground font-sans">{ing.quantidade}x</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground font-sans">Valor Pago:</span>
+                      <span className="font-bold text-green-500 font-sans">R$ {Number(ing.valor_total).toFixed(2)}</span>
+                    </div>
+                    {ing.status === 'confirmado' && (
+                      <div className="text-center mt-2 text-xs text-muted-foreground font-sans">
+                        Apresente este QR Code na portaria.
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

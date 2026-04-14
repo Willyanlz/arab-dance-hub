@@ -13,6 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { ArrowLeft, Plus, Trash2, Save, Trophy, Star, BookOpen, Ticket, Settings2, FileText, MapPin, Calendar, Store } from 'lucide-react';
 
+import { FormulariosConfig } from './admin-config/FormulariosConfig';
+import { AdminRoles } from './admin-config/AdminRoles';
+import { ModalidadesConfig } from './admin-config/ModalidadesConfig';
+
 interface ModalidadeConfig {
   id?: string;
   nome: string;
@@ -33,9 +37,6 @@ const AdminConfig = () => {
   const [abrirCompetição, setAbrirCompetição] = useState(true);
   const [abrirMostra, setAbrirMostra] = useState(true);
   const [abrirWorkshop, setAbrirWorkshop] = useState(true);
-
-  // ── Modalidades (from modalidades_config table)
-  const [modalidades, setModalidades] = useState<ModalidadeConfig[]>([]);
 
   // ── Como soube
   const [comoSoubeOpcoes, setComoSoubeOpcoes] = useState<string[]>([]);
@@ -109,7 +110,6 @@ const AdminConfig = () => {
       (supabase.from('lotes_workshop') as any).select('*').order('numero'),
       (supabase.from('lotes_ingresso') as any).select('*').order('numero'),
       (supabase.from('termos_config') as any).select('*'),
-      (supabase.from('modalidades_config') as any).select('*').order('ordem'),
     ]);
 
     if (configData) {
@@ -139,7 +139,6 @@ const AdminConfig = () => {
     if (lotesMostraData) setLotesMostra(lotesMostraData);
     if (lotesWorkshopData) setLotesWorkshop(lotesWorkshopData);
     if (lotesIngressoData) setLotesIngresso(lotesIngressoData);
-    if (modalidadesData) setModalidades(modalidadesData);
     if (termosData) {
       termosData.forEach((t: any) => {
         if (t.tipo === 'competicao') setTermoCompetição(t.conteudo);
@@ -163,24 +162,6 @@ const AdminConfig = () => {
     const { error } = await (supabase.from('termos_config') as any).upsert({ tipo, conteudo }, { onConflict: 'tipo' });
     if (error) toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     else toast({ title: '✅ Termo atualizado!' });
-  };
-
-  // ── Modalidade CRUD
-  const saveModalidade = async (m: ModalidadeConfig) => {
-    if (m.id) {
-      await (supabase.from('modalidades_config') as any).update({ nome: m.nome, tipo: m.tipo, periodo: m.periodo, horario: m.horario, faixa_etaria: m.faixa_etaria, ativo: m.ativo, ordem: m.ordem }).eq('id', m.id);
-      toast({ title: '✅ Modalidade salva!' });
-    } else {
-      await (supabase.from('modalidades_config') as any).insert({ nome: m.nome, tipo: m.tipo, periodo: m.periodo, horario: m.horario, faixa_etaria: m.faixa_etaria, ativo: m.ativo, ordem: m.ordem });
-      toast({ title: '✅ Modalidade criada!' });
-      loadAll();
-    }
-  };
-
-  const deleteModalidade = async (id: string) => {
-    await (supabase.from('modalidades_config') as any).delete().eq('id', id);
-    toast({ title: 'Modalidade removida' });
-    loadAll();
   };
 
   // ── Como soube list helpers
@@ -295,17 +276,18 @@ const AdminConfig = () => {
         <h1 className="text-2xl font-serif font-bold text-foreground mb-8">Configurações do Sistema</h1>
 
         <Tabs defaultValue="inscricoes" className="space-y-6">
-          <TabsList className="bg-muted flex-wrap h-auto gap-1 p-1">
-            <TabsTrigger value="inscricoes" className="font-sans text-xs"><Settings2 className="w-3.5 h-3.5 mr-1" />Inscrições</TabsTrigger>
-            <TabsTrigger value="modalidades" className="font-sans text-xs">🎭 Modalidades</TabsTrigger>
-            <TabsTrigger value="precos" className="font-sans text-xs">💰 Lotes/Preços</TabsTrigger>
-            <TabsTrigger value="formularios" className="font-sans text-xs">📋 Formulários</TabsTrigger>
-            <TabsTrigger value="termos" className="font-sans text-xs"><FileText className="w-3.5 h-3.5 mr-1" />Termos</TabsTrigger>
-            <TabsTrigger value="workshops" className="font-sans text-xs"><BookOpen className="w-3.5 h-3.5 mr-1" />Workshops</TabsTrigger>
-            <TabsTrigger value="ingressos" className="font-sans text-xs"><Ticket className="w-3.5 h-3.5 mr-1" />Ingressos</TabsTrigger>
-            <TabsTrigger value="stands" className="font-sans text-xs"><Store className="w-3.5 h-3.5 mr-1" />Stands</TabsTrigger>
-            <TabsTrigger value="landpage" className="font-sans text-xs">🌐 Evento</TabsTrigger>
-          </TabsList>
+            <TabsList className="bg-muted flex-wrap h-auto gap-1 p-1">
+              <TabsTrigger value="inscricoes" className="font-sans text-xs"><Settings2 className="w-3.5 h-3.5 mr-1" />Inscrições</TabsTrigger>
+              <TabsTrigger value="modalidades" className="font-sans text-xs">🎭 Modalidades</TabsTrigger>
+              <TabsTrigger value="precos" className="font-sans text-xs">💰 Lotes/Preços</TabsTrigger>
+              <TabsTrigger value="formularios" className="font-sans text-xs">📋 Formulários</TabsTrigger>
+              <TabsTrigger value="termos" className="font-sans text-xs"><FileText className="w-3.5 h-3.5 mr-1" />Termos</TabsTrigger>
+              <TabsTrigger value="workshops" className="font-sans text-xs"><BookOpen className="w-3.5 h-3.5 mr-1" />Workshops</TabsTrigger>
+              <TabsTrigger value="ingressos" className="font-sans text-xs"><Ticket className="w-3.5 h-3.5 mr-1" />Ingressos</TabsTrigger>
+              <TabsTrigger value="stands" className="font-sans text-xs"><Store className="w-3.5 h-3.5 mr-1" />Stands</TabsTrigger>
+              <TabsTrigger value="landpage" className="font-sans text-xs">🌐 Evento</TabsTrigger>
+              <TabsTrigger value="admins" className="font-sans text-xs">🛡️ Admins</TabsTrigger>
+            </TabsList>
 
           {/* ── INSCRIÇÕES ── */}
           <TabsContent value="inscricoes" className="space-y-4">
@@ -335,67 +317,19 @@ const AdminConfig = () => {
             </Card>
           </TabsContent>
 
+          {/* ── ADMIN ROLES ── */}
+          <TabsContent value="admins" className="space-y-4">
+            <AdminRoles />
+          </TabsContent>
+
           {/* ── MODALIDADES ── */}
           <TabsContent value="modalidades" className="space-y-4">
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="font-serif text-foreground text-lg">Modalidades por Período</CardTitle>
-                <CardDescription className="font-sans text-muted-foreground">Configure modalidades com horário e faixa etária. Separadas por tipo (Competição/Mostra) e período.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {modalidades.map((m, i) => (
-                  <div key={m.id || i} className="p-4 bg-muted rounded-lg space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div>
-                        <Label className="text-foreground font-sans text-xs">Nome da Modalidade</Label>
-                        <Input value={m.nome} onChange={e => { const u = [...modalidades]; u[i] = { ...u[i], nome: e.target.value }; setModalidades(u); }} className="bg-background border-border text-foreground" />
-                      </div>
-                      <div>
-                        <Label className="text-foreground font-sans text-xs">Tipo</Label>
-                        <select value={m.tipo} onChange={e => { const u = [...modalidades]; u[i] = { ...u[i], tipo: e.target.value }; setModalidades(u); }} className="w-full h-10 rounded-md border border-border bg-background text-foreground px-3 text-sm font-sans">
-                          <option value="competicao">Competição</option>
-                          <option value="mostra">Mostra</option>
-                        </select>
-                      </div>
-                      <div>
-                        <Label className="text-foreground font-sans text-xs">Período</Label>
-                        <select value={m.periodo} onChange={e => { const u = [...modalidades]; u[i] = { ...u[i], periodo: e.target.value }; setModalidades(u); }} className="w-full h-10 rounded-md border border-border bg-background text-foreground px-3 text-sm font-sans">
-                          <option value="manha">Manhã</option>
-                          <option value="tarde">Tarde</option>
-                        </select>
-                      </div>
-                      <div>
-                        <Label className="text-foreground font-sans text-xs">Horário</Label>
-                        <Input value={m.horario || ''} onChange={e => { const u = [...modalidades]; u[i] = { ...u[i], horario: e.target.value }; setModalidades(u); }} placeholder="09:00 - 10:30" className="bg-background border-border text-foreground" />
-                      </div>
-                      <div>
-                        <Label className="text-foreground font-sans text-xs">Faixa Etária</Label>
-                        <Input value={m.faixa_etaria || ''} onChange={e => { const u = [...modalidades]; u[i] = { ...u[i], faixa_etaria: e.target.value }; setModalidades(u); }} placeholder="12 a 17 anos" className="bg-background border-border text-foreground" />
-                      </div>
-                      <div>
-                        <Label className="text-foreground font-sans text-xs">Ordem</Label>
-                        <Input type="number" value={m.ordem} onChange={e => { const u = [...modalidades]; u[i] = { ...u[i], ordem: Number(e.target.value) }; setModalidades(u); }} className="bg-background border-border text-foreground" />
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <Switch checked={m.ativo} onCheckedChange={v => { const u = [...modalidades]; u[i] = { ...u[i], ativo: v }; setModalidades(u); }} />
-                        <span className="text-sm font-sans text-muted-foreground">{m.ativo ? 'Ativa' : 'Inativa'}</span>
-                        <Badge variant="outline" className="text-xs border-border font-sans">{m.tipo === 'competicao' ? '🏆 Comp.' : '⭐ Mostra'}</Badge>
-                        <Badge variant="outline" className="text-xs border-border font-sans">{m.periodo === 'manha' ? '☀️ Manhã' : '🌇 Tarde'}</Badge>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => saveModalidade(modalidades[i])} className="bg-gradient-gold text-primary-foreground font-sans"><Save className="w-3.5 h-3.5 mr-1" /> Salvar</Button>
-                        {m.id && <Button size="sm" variant="ghost" onClick={() => deleteModalidade(m.id!)}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <Button variant="outline" onClick={() => setModalidades([...modalidades, { nome: '', tipo: 'competicao', periodo: 'manha', horario: '', faixa_etaria: '', ativo: true, ordem: modalidades.length }])} className="border-border text-foreground font-sans w-full">
-                  <Plus className="w-4 h-4 mr-1" /> Adicionar Modalidade
-                </Button>
-              </CardContent>
-            </Card>
+            <ModalidadesConfig />
+          </TabsContent>
+
+          {/* ── FORMULÁRIOS DINÂMICOS ── */}
+          <TabsContent value="formularios" className="space-y-4">
+            <FormulariosConfig />
           </TabsContent>
 
           {/* ── LOTES / PREÇOS ── */}

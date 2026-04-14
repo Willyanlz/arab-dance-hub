@@ -13,6 +13,8 @@ import AdminConfig from "./pages/AdminConfig.tsx";
 import AdminIngressos from "./pages/AdminIngressos.tsx";
 import Ingressos from "./pages/Ingressos.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import UpdatePassword from "./pages/UpdatePassword.tsx";
+import AdminScanner from "./pages/AdminScanner.tsx";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +34,8 @@ const App = () => (
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/config" element={<AdminConfig />} />
             <Route path="/admin/ingressos" element={<AdminIngressos />} />
+            <Route path="/admin/scanner" element={<AdminScanner />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
