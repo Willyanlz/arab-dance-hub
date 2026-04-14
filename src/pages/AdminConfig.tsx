@@ -56,7 +56,7 @@ const AdminConfig = () => {
 
   // ── Ingressos
   const [tiposIngresso, setTiposIngresso] = useState<any[]>([]);
-  const [novoIngresso, setNovoIngresso] = useState({ nome: '', descricao: '', preco: 0, quantidade_total: 0 });
+  const [novoIngresso, setNovoIngresso] = useState({ nome: '', descricao: '', preco: 0, quantidade_total: 0, lote_ingresso_id: '' });
 
   // ── Landing page config
   const [eventoNome, setEventoNome] = useState('F.A.D.D.A');
@@ -64,6 +64,11 @@ const AdminConfig = () => {
   const [eventoLocal, setEventoLocal] = useState('Araraquara, São Paulo');
   const [eventoHorario, setEventoHorario] = useState('9h às 22h');
   const [eventoPix, setEventoPix] = useState('fadda@festival.com.br');
+  const [eventoEdicao, setEventoEdicao] = useState('9ª Edição');
+  const [eventoSubtitulo, setEventoSubtitulo] = useState('Festival Araraquarense de Danças Árabes');
+  const [eventoDescricao, setEventoDescricao] = useState('Competições • Mostras • Workshops • Premiações');
+  const [regrasMusica, setRegrasMusica] = useState<string[]>(['Formato MP3 via pen drive', 'Entregar antes da apresentação', 'Solo/Dupla/Trio: até 3 minutos', 'Grupo: até 4 minutos']);
+  const [regrasProibicoes, setRegrasProibicoes] = useState<string[]>(['Uso de fogo', 'Uso de água', 'Elementos perigosos', 'Atrasos desclassificam']);
   const [premiacoes, setPremiacoes] = useState<{categoria:string;valor:string}[]>([]);
   const [pontuacao, setPontuacao] = useState<{criterio:string;percentual:number}[]>([]);
   const [standsFeirinha, setStandsFeirinha] = useState<{titulo:string;icone:string;descricao:string;contato:string}[]>([]);
