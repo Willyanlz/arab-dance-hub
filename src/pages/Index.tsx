@@ -53,10 +53,29 @@ const Index = () => {
     load();
   }, []);
 
-  const eventoNome = typeof config.evento_nome === 'string' ? config.evento_nome : 'F.A.D.D.A';
-  const eventoData = typeof config.evento_data === 'string' ? config.evento_data : '08 e 09 de Agosto 2026';
-  const eventoLocal = typeof config.evento_local === 'string' ? config.evento_local : 'Araraquara, São Paulo';
-  const eventoHorario = typeof config.evento_horario === 'string' ? config.evento_horario : '';
+  const c = (key: string, fallback: string) => (typeof config[key] === 'string' ? config[key] : fallback);
+
+  const eventoNome = c('evento_nome', 'F.A.D.D.A');
+  const eventoData = c('evento_data', '08 e 09 de Agosto 2026');
+  const eventoLocal = c('evento_local', 'Araraquara, São Paulo');
+  const eventoHorario = c('evento_horario', '');
+  const eventoEdicao = c('evento_edicao', '9ª Edição');
+  const eventoSubtitulo = c('evento_subtitulo', 'Festival Araraquarense de Danças Árabes');
+  const eventoDescricao = c('evento_descricao', 'Competições • Mostras • Workshops • Premiações');
+
+  // Rules from config or defaults
+  const regrasMusica = Array.isArray(config.regras_musica) ? config.regras_musica : [
+    'Formato MP3 via pen drive',
+    'Entregar antes da apresentação',
+    'Solo/Dupla/Trio: até 3 minutos',
+    'Grupo: até 4 minutos',
+  ];
+  const regrasProibicoes = Array.isArray(config.regras_proibicoes) ? config.regras_proibicoes : [
+    'Uso de fogo',
+    'Uso de água',
+    'Elementos perigosos',
+    'Atrasos desclassificam',
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -68,16 +87,16 @@ const Index = () => {
         </div>
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
           <Badge className="mb-6 bg-primary/20 border-gold text-gold-light px-4 py-1.5 text-sm font-sans">
-            9ª Edição • {eventoData}
+            {eventoEdicao} • {eventoData}
           </Badge>
           <h1 className="text-5xl md:text-7xl font-serif font-bold text-gradient-gold mb-4 leading-tight">
             {eventoNome}
           </h1>
           <p className="text-xl md:text-2xl font-serif text-gold-light/90 mb-2">
-            Festival Araraquarense de Danças Árabes
+            {eventoSubtitulo}
           </p>
           <p className="text-muted-foreground text-base mb-8 max-w-2xl mx-auto font-sans text-sand-dark">
-            Competições • Mostras • Workshops • Premiações
+            {eventoDescricao}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className={btnPrimary}>
@@ -209,10 +228,7 @@ const Index = () => {
                 <Music className="w-6 h-6 text-primary mb-3" />
                 <h3 className="font-serif font-semibold text-foreground mb-2">Música</h3>
                 <ul className="text-sm text-muted-foreground space-y-1 font-sans">
-                  <li>• Formato MP3 via pen drive</li>
-                  <li>• Entregar antes da apresentação</li>
-                  <li>• Solo/Dupla/Trio: até 3 minutos</li>
-                  <li>• Grupo: até 4 minutos</li>
+                  {regrasMusica.map((r: string, i: number) => <li key={i}>• {r}</li>)}
                 </ul>
               </CardContent>
             </Card>
@@ -221,10 +237,7 @@ const Index = () => {
                 <Star className="w-6 h-6 text-destructive mb-3" />
                 <h3 className="font-serif font-semibold text-foreground mb-2">Proibições</h3>
                 <ul className="text-sm text-muted-foreground space-y-1 font-sans">
-                  <li>• Uso de fogo</li>
-                  <li>• Uso de água</li>
-                  <li>• Elementos perigosos</li>
-                  <li>• Atrasos desclassificam</li>
+                  {regrasProibicoes.map((r: string, i: number) => <li key={i}>• {r}</li>)}
                 </ul>
               </CardContent>
             </Card>
@@ -252,49 +265,7 @@ const Index = () => {
                 </Card>
               );
             }) : (
-              <>
-                <Card className="bg-card border-border">
-                  <CardContent className="p-6">
-                    <Camera className="w-8 h-8 text-primary mb-4" />
-                    <h3 className="font-serif font-semibold text-foreground mb-3">Foto e Filmagem</h3>
-                    <p className="text-sm text-muted-foreground font-sans mb-3">
-                      Cobertura oficial por <strong>Marcelo Ribeiro Fotografia</strong> (CNPJ: 28.544.222/0001-94).
-                    </p>
-                    <p className="text-xs text-muted-foreground font-sans mb-3">
-                      É proibido filmar/fotografar com equipamento profissional. Apenas celulares sem flash.
-                    </p>
-                    <div className="space-y-1 text-xs font-sans text-muted-foreground">
-                      <p className="font-medium text-foreground">Valores por apresentação:</p>
-                      <p>R$ 160 até 15/04 (fotos R$85 / filmagem R$85)</p>
-                      <p>R$ 170 até 30/04 (fotos R$90 / filmagem R$90)</p>
-                      <p>R$ 180 até 31/05 (fotos R$95 / filmagem R$95)</p>
-                      <p>R$ 190 até 30/06 (fotos R$100 / filmagem R$100)</p>
-                      <p>R$ 200 até 31/07 (fotos R$105 / filmagem R$105)</p>
-                      <p>R$ 210 após 08/08 (fotos R$110 / filmagem R$110)</p>
-                      <p className="text-primary">5% desconto para +1 apresentação</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground font-sans mt-3">📱 WhatsApp: 19 9 93185949</p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-card border-border">
-                  <CardContent className="p-6">
-                    <Scissors className="w-8 h-8 text-primary mb-4" />
-                    <h3 className="font-serif font-semibold text-foreground mb-3">Maquiagem e Cabelo</h3>
-                    <p className="text-sm text-muted-foreground font-sans mb-3">Com <strong>Teresinha Ferro</strong></p>
-                    <p className="text-sm text-muted-foreground font-sans">Agende seu horário!</p>
-                    <p className="text-xs text-muted-foreground font-sans mt-3">📱 Cel: (11) 97992-2321</p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-card border-border">
-                  <CardContent className="p-6">
-                    <CircleDot className="w-8 h-8 text-primary mb-4" />
-                    <h3 className="font-serif font-semibold text-foreground mb-3">Plataforma 360° e Cabine de Fotos</h3>
-                    <p className="text-sm text-muted-foreground font-sans">
-                      Pagamento diretamente com a equipe do <strong>Paulo JR Cabine</strong>.
-                    </p>
-                  </CardContent>
-                </Card>
-              </>
+              <p className="col-span-3 text-center text-muted-foreground font-sans">Nenhum stand cadastrado. Configure em Painel Admin → Configurações → Stands.</p>
             )}
           </div>
         </div>
@@ -307,7 +278,7 @@ const Index = () => {
             Garanta sua Vaga!
           </h2>
           <p className="text-sand-dark mb-8 font-sans">
-            Inscrições abertas. Aproveite os melhores preços do 1º lote!
+            Inscrições abertas. Aproveite os melhores preços!
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className={btnPrimary}>
@@ -323,7 +294,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="py-8 px-4 bg-card border-t border-border">
         <div className="max-w-6xl mx-auto text-center text-muted-foreground text-sm font-sans">
-          <p>© 2026 {eventoNome} - Festival Araraquarense de Danças Árabes. Todos os direitos reservados.</p>
+          <p>© 2026 {eventoNome} - {eventoSubtitulo}. Todos os direitos reservados.</p>
           <p className="mt-1">Elaine de Fátima da Silva — CNPJ 196914770001-99</p>
         </div>
       </footer>
