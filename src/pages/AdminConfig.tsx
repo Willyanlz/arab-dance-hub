@@ -240,7 +240,7 @@ const AdminConfig = () => {
     if (!novoIngresso.nome) return;
     await supabase.from('tipos_ingresso').insert(novoIngresso as any);
     toast({ title: '✅ Ingresso criado!' });
-    setNovoIngresso({ nome: '', descricao: '', preco: 0, quantidade_total: 0 });
+    setNovoIngresso({ nome: '', descricao: '', preco: 0, quantidade_total: 0, lote_ingresso_id: '' });
     loadAll();
   };
   const toggleIngresso = async (id: string, ativo: boolean) => { await supabase.from('tipos_ingresso').update({ ativo: !ativo }).eq('id', id); loadAll(); };
