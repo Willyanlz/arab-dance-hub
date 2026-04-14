@@ -243,7 +243,9 @@ const AdminConfig = () => {
   // ── Ticket CRUD
   const criarIngresso = async () => {
     if (!novoIngresso.nome) return;
-    await supabase.from('tipos_ingresso').insert(novoIngresso as any);
+    const payload: any = { nome: novoIngresso.nome, descricao: novoIngresso.descricao, preco: novoIngresso.preco, quantidade_total: novoIngresso.quantidade_total };
+    if (novoIngresso.lote_ingresso_id) payload.lote_ingresso_id = novoIngresso.lote_ingresso_id;
+    await supabase.from('tipos_ingresso').insert(payload);
     toast({ title: '✅ Ingresso criado!' });
     setNovoIngresso({ nome: '', descricao: '', preco: 0, quantidade_total: 0, lote_ingresso_id: '' });
     loadAll();
