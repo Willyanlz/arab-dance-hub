@@ -56,7 +56,7 @@ const AdminConfig = () => {
 
   // ── Ingressos
   const [tiposIngresso, setTiposIngresso] = useState<any[]>([]);
-  const [novoIngresso, setNovoIngresso] = useState({ nome: '', descricao: '', preco: 0, quantidade_total: 0 });
+  const [novoIngresso, setNovoIngresso] = useState({ nome: '', descricao: '', preco: 0, quantidade_total: 0, lote_ingresso_id: '' });
 
   // ── Landing page config
   const [eventoNome, setEventoNome] = useState('F.A.D.D.A');
@@ -64,6 +64,11 @@ const AdminConfig = () => {
   const [eventoLocal, setEventoLocal] = useState('Araraquara, São Paulo');
   const [eventoHorario, setEventoHorario] = useState('9h às 22h');
   const [eventoPix, setEventoPix] = useState('fadda@festival.com.br');
+  const [eventoEdicao, setEventoEdicao] = useState('9ª Edição');
+  const [eventoSubtitulo, setEventoSubtitulo] = useState('Festival Araraquarense de Danças Árabes');
+  const [eventoDescricao, setEventoDescricao] = useState('Competições • Mostras • Workshops • Premiações');
+  const [regrasMusica, setRegrasMusica] = useState<string[]>(['Formato MP3 via pen drive', 'Entregar antes da apresentação', 'Solo/Dupla/Trio: até 3 minutos', 'Grupo: até 4 minutos']);
+  const [regrasProibicoes, setRegrasProibicoes] = useState<string[]>(['Uso de fogo', 'Uso de água', 'Elementos perigosos', 'Atrasos desclassificam']);
   const [premiacoes, setPremiacoes] = useState<{categoria:string;valor:string}[]>([]);
   const [pontuacao, setPontuacao] = useState<{criterio:string;percentual:number}[]>([]);
   const [standsFeirinha, setStandsFeirinha] = useState<{titulo:string;icone:string;descricao:string;contato:string}[]>([]);
@@ -119,6 +124,11 @@ const AdminConfig = () => {
       if (typeof map.evento_local === 'string') setEventoLocal(map.evento_local);
       if (typeof map.evento_horario === 'string') setEventoHorario(map.evento_horario);
       if (typeof map.evento_pix === 'string') setEventoPix(map.evento_pix);
+      if (typeof map.evento_edicao === 'string') setEventoEdicao(map.evento_edicao);
+      if (typeof map.evento_subtitulo === 'string') setEventoSubtitulo(map.evento_subtitulo);
+      if (typeof map.evento_descricao === 'string') setEventoDescricao(map.evento_descricao);
+      if (Array.isArray(map.regras_musica)) setRegrasMusica(map.regras_musica);
+      if (Array.isArray(map.regras_proibicoes)) setRegrasProibicoes(map.regras_proibicoes);
       if (Array.isArray(map.premiacoes)) setPremiacoes(map.premiacoes);
       if (Array.isArray(map.pontuacao)) setPontuacao(map.pontuacao);
       if (Array.isArray(map.stands_feirinha)) setStandsFeirinha(map.stands_feirinha);
@@ -233,9 +243,11 @@ const AdminConfig = () => {
   // ── Ticket CRUD
   const criarIngresso = async () => {
     if (!novoIngresso.nome) return;
-    await supabase.from('tipos_ingresso').insert(novoIngresso as any);
+    const payload: any = { nome: novoIngresso.nome, descricao: novoIngresso.descricao, preco: novoIngresso.preco, quantidade_total: novoIngresso.quantidade_total };
+    if (novoIngresso.lote_ingresso_id) payload.lote_ingresso_id = novoIngresso.lote_ingresso_id;
+    await supabase.from('tipos_ingresso').insert(payload);
     toast({ title: '✅ Ingresso criado!' });
-    setNovoIngresso({ nome: '', descricao: '', preco: 0, quantidade_total: 0 });
+    setNovoIngresso({ nome: '', descricao: '', preco: 0, quantidade_total: 0, lote_ingresso_id: '' });
     loadAll();
   };
   const toggleIngresso = async (id: string, ativo: boolean) => { await supabase.from('tipos_ingresso').update({ ativo: !ativo }).eq('id', id); loadAll(); };
@@ -621,6 +633,12 @@ const AdminConfig = () => {
                   <div><Label className="text-foreground font-sans">Descrição</Label><Input value={novoIngresso.descricao} onChange={e => setNovoIngresso({ ...novoIngresso, descricao: e.target.value })} className="bg-background border-border text-foreground" /></div>
                   <div><Label className="text-foreground font-sans">Preço (R$)</Label><Input type="number" value={novoIngresso.preco} onChange={e => setNovoIngresso({ ...novoIngresso, preco: Number(e.target.value) })} className="bg-background border-border text-foreground" /></div>
                   <div><Label className="text-foreground font-sans">Quantidade Total</Label><Input type="number" value={novoIngresso.quantidade_total} onChange={e => setNovoIngresso({ ...novoIngresso, quantidade_total: Number(e.target.value) })} className="bg-background border-border text-foreground" /></div>
+                  <div><Label className="text-foreground font-sans">Lote</Label>
+                    <select value={novoIngresso.lote_ingresso_id} onChange={e => setNovoIngresso({ ...novoIngresso, lote_ingresso_id: e.target.value })} className="w-full h-10 rounded-md border border-border bg-background text-foreground px-3 text-sm font-sans">
+                      <option value="">Sem lote</option>
+                      {lotesIngresso.map((l: any) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <Button onClick={criarIngresso} className="bg-gradient-gold text-primary-foreground font-sans"><Plus className="w-4 h-4 mr-1" /> Criar Ingresso</Button>
               </CardContent>
@@ -702,12 +720,47 @@ const AdminConfig = () => {
                 <CardDescription className="font-sans text-muted-foreground text-xs">Estes dados aparecem na landing page.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div><Label className="text-foreground font-sans">Edição (ex: 9ª Edição)</Label><Input value={eventoEdicao} onChange={e => setEventoEdicao(e.target.value)} className="bg-background border-border text-foreground" /></div>
                 <div><Label className="text-foreground font-sans">Nome do Evento</Label><Input value={eventoNome} onChange={e => setEventoNome(e.target.value)} className="bg-background border-border text-foreground" /></div>
+                <div><Label className="text-foreground font-sans">Subtítulo</Label><Input value={eventoSubtitulo} onChange={e => setEventoSubtitulo(e.target.value)} className="bg-background border-border text-foreground" /></div>
+                <div><Label className="text-foreground font-sans">Descrição curta</Label><Input value={eventoDescricao} onChange={e => setEventoDescricao(e.target.value)} className="bg-background border-border text-foreground" /></div>
                 <div><Label className="text-foreground font-sans">Data do Evento</Label><Input value={eventoData} onChange={e => setEventoData(e.target.value)} className="bg-background border-border text-foreground" /></div>
                 <div><Label className="text-foreground font-sans">Local</Label><Input value={eventoLocal} onChange={e => setEventoLocal(e.target.value)} className="bg-background border-border text-foreground" /></div>
                 <div><Label className="text-foreground font-sans">Horário</Label><Input value={eventoHorario} onChange={e => setEventoHorario(e.target.value)} placeholder="9h às 22h" className="bg-background border-border text-foreground" /></div>
                 <div><Label className="text-foreground font-sans">Chave PIX</Label><Input value={eventoPix} onChange={e => setEventoPix(e.target.value)} className="bg-background border-border text-foreground" /></div>
-                <Button onClick={async () => { await Promise.all([upsertConfig('evento_nome', eventoNome), upsertConfig('evento_data', eventoData), upsertConfig('evento_local', eventoLocal), upsertConfig('evento_horario', eventoHorario), upsertConfig('evento_pix', eventoPix)]); }} className="bg-gradient-gold text-primary-foreground font-sans"><Save className="w-4 h-4 mr-1" /> Salvar</Button>
+                <Button onClick={async () => { await Promise.all([upsertConfig('evento_nome', eventoNome), upsertConfig('evento_data', eventoData), upsertConfig('evento_local', eventoLocal), upsertConfig('evento_horario', eventoHorario), upsertConfig('evento_pix', eventoPix), upsertConfig('evento_edicao', eventoEdicao), upsertConfig('evento_subtitulo', eventoSubtitulo), upsertConfig('evento_descricao', eventoDescricao)]); }} className="bg-gradient-gold text-primary-foreground font-sans"><Save className="w-4 h-4 mr-1" /> Salvar</Button>
+              </CardContent>
+            </Card>
+
+            {/* Regras */}
+            <Card className="bg-card border-border">
+              <CardHeader><CardTitle className="font-serif text-foreground text-lg">Regras — Música</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {regrasMusica.map((r, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Input value={r} onChange={e => { const u = [...regrasMusica]; u[i] = e.target.value; setRegrasMusica(u); }} className="bg-background border-border text-foreground flex-1" />
+                    <Button variant="ghost" size="icon" onClick={() => setRegrasMusica(regrasMusica.filter((_, j) => j !== i))}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setRegrasMusica([...regrasMusica, ''])} className="border-border text-foreground font-sans"><Plus className="w-4 h-4 mr-1" /> Adicionar</Button>
+                  <Button onClick={() => upsertConfig('regras_musica', regrasMusica)} className="bg-gradient-gold text-primary-foreground font-sans"><Save className="w-4 h-4 mr-1" /> Salvar</Button>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card border-border">
+              <CardHeader><CardTitle className="font-serif text-foreground text-lg">Regras — Proibições</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {regrasProibicoes.map((r, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Input value={r} onChange={e => { const u = [...regrasProibicoes]; u[i] = e.target.value; setRegrasProibicoes(u); }} className="bg-background border-border text-foreground flex-1" />
+                    <Button variant="ghost" size="icon" onClick={() => setRegrasProibicoes(regrasProibicoes.filter((_, j) => j !== i))}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setRegrasProibicoes([...regrasProibicoes, ''])} className="border-border text-foreground font-sans"><Plus className="w-4 h-4 mr-1" /> Adicionar</Button>
+                  <Button onClick={() => upsertConfig('regras_proibicoes', regrasProibicoes)} className="bg-gradient-gold text-primary-foreground font-sans"><Save className="w-4 h-4 mr-1" /> Salvar</Button>
+                </div>
               </CardContent>
             </Card>
 
