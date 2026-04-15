@@ -189,7 +189,7 @@ const Inscricao = () => {
         (supabase.from('termos_config') as any).select('tipo,conteudo'),
         supabase.from('profiles').select('cpf,telefone,is_aluna_jalilete,participante_anterior').eq('user_id', user.id).single(),
         (supabase.from('modalidades_config') as any).select('*').eq('ativo', true).order('ordem'),
-        (supabase as any).from('form_config').select('*'),
+        supabase.from('form_config').select('*'),
       ]);
 
       if (formConfigData) setFormConfigs(formConfigData);
@@ -543,7 +543,7 @@ const Inscricao = () => {
         {f.type !== 'checkbox' && <Label className="text-foreground font-sans">{f.label} {f.required ? '*' : ''}</Label>}
         {f.type === 'text' || f.type === 'email' || f.type === 'number' || f.type === 'date' ? (
           <Input
-            type={f.type} required={f.required} placeholder={f.placeholder || ''}
+            type={f.type} placeholder={f.placeholder || ''}
             value={dadosAdicionais[f.name] || ''}
             onChange={e => setDadosAdicionais({ ...dadosAdicionais, [f.name]: e.target.value })}
             className="bg-background border-border text-foreground"

@@ -45,7 +45,7 @@ export const FormBuilder = ({ tipo, title }: FormBuilderProps) => {
 
   const loadCampos = async () => {
     setLoading(true);
-    const { data } = await (supabase as any).from('form_config').select('fields').eq('tipo_inscricao', tipo).single();
+    const { data } = await supabase.from('form_config').select('fields').eq('tipo_inscricao', tipo).maybeSingle();
     if (data && data.fields) {
       setFields((data.fields as unknown as FormFieldConfig[]) || []);
     } else {
@@ -56,9 +56,9 @@ export const FormBuilder = ({ tipo, title }: FormBuilderProps) => {
 
   const handleSave = async () => {
     setSaving(true);
-    const { error } = await (supabase as any).from('form_config').upsert({
+    const { error } = await supabase.from('form_config').upsert({
       tipo_inscricao: tipo,
-      fields: fields as any,
+      fields: fields as unknown as any,
     }, { onConflict: 'tipo_inscricao' });
 
     if (error) toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
