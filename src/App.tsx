@@ -26,6 +26,7 @@ import { ConfigStands } from "./pages/admin-config/ConfigStands";
 import { ConfigEvento } from "./pages/admin-config/ConfigEvento";
 import { AdminRoles } from "./pages/admin-config/AdminRoles";
 import { FormBuilder } from "./pages/admin-config/components/FormBuilder";
+import { ConfigEmailTemplate } from "./pages/admin-config/ConfigEmailTemplate";
 
 const queryClient = new QueryClient();
 
