@@ -1,5 +1,6 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend";
+import { Resend } from "npm:resend@2.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_KEY"));
 
@@ -25,8 +26,19 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const ticketReq: TicketRequest = await req.json();
 
-    const encodedId = btoa(ticketReq.ingresso_id);
+    // Validação dos campos obrigatórios
+    if (!ticketReq.email || !ticketReq.ingresso_id || !ticketReq.nome_comprador) {
+      return new Response(
+        JSON.stringify({ error: "Campos obrigatórios ausentes: email, ingresso_id, nome_comprador" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // encodeURIComponent garante segurança com caracteres especiais
+    const encodedId = btoa(encodeURIComponent(ticketReq.ingresso_id));
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedId}`;
+
+    const valorFormatado = Number(ticketReq.valor_total).toFixed(2).replace(".", ",");
 
     const htmlContent = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #000; color: #fff; padding: 40px 20px; border-radius: 12px; border: 1px solid #d4af37;">
@@ -39,11 +51,20 @@ const handler = async (req: Request): Promise<Response> => {
         <p style="font-size: 16px; line-height: 1.6; color: #ccc;">Seu pagamento foi confirmado com sucesso. Prepare-se para uma experiência inesquecível no mundo da dança árabe!</p>
         
         <div style="background: linear-gradient(135deg, #1a1a1a 0%, #000 100%); border: 1px solid #333; padding: 25px; margin: 30px 0; border-radius: 8px;">
-          <h2 style="color: #d4af37; font-size: 18px; margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #333; pb-10px">Detalhes do Pedido</h2>
+          <h2 style="color: #d4af37; font-size: 18px; margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px;">Detalhes do Pedido</h2>
           <table style="width: 100%; color: #fff; font-size: 14px;">
-            <tr><td style="padding: 5px 0; color: #888;">Ingresso:</td><td style="text-align: right; font-weight: bold;">${ticketReq.tipo_ingresso_nome}</td></tr>
-            <tr><td style="padding: 5px 0; color: #888;">Quantidade:</td><td style="text-align: right; font-weight: bold;">${ticketReq.quantidade}</td></tr>
-            <tr><td style="padding: 15px 0 5px 0; color: #888; border-top: 1px solid #333; font-size: 16px;">VALOR TOTAL:</td><td style="text-align: right; font-weight: bold; color: #d4af37; border-top: 1px solid #333; font-size: 18px;">R$ ${ticketReq.valor_total.toFixed(2)}</td></tr>
+            <tr>
+              <td style="padding: 5px 0; color: #888;">Ingresso:</td>
+              <td style="text-align: right; font-weight: bold;">${ticketReq.tipo_ingresso_nome}</td>
+            </tr>
+            <tr>
+              <td style="padding: 5px 0; color: #888;">Quantidade:</td>
+              <td style="text-align: right; font-weight: bold;">${ticketReq.quantidade}</td>
+            </tr>
+            <tr>
+              <td style="padding: 15px 0 5px 0; color: #888; border-top: 1px solid #333; font-size: 16px;">VALOR TOTAL:</td>
+              <td style="text-align: right; font-weight: bold; color: #d4af37; border-top: 1px solid #333; font-size: 18px;">R$ ${valorFormatado}</td>
+            </tr>
           </table>
         </div>
 
@@ -61,7 +82,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const { data, error } = await resend.emails.send({
-      from: "FADDA <onboarding@resend.dev>",
+      from: "FADDA <onboarding@resend.dev>", // ⚠️ Trocar pelo seu domínio verificado em produção
       to: [ticketReq.email],
       subject: "🎉 Seu ingresso para o 9º F.A.D.D.A está aqui!",
       html: htmlContent,
@@ -72,10 +93,11 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Erro ao enviar email: ${error.message}`);
     }
 
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify({ success: true, data }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (error: any) {
     console.error("Erro na Edge Function:", error.message);
     return new Response(
