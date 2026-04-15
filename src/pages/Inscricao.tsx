@@ -189,7 +189,7 @@ const Inscricao = () => {
         (supabase.from('termos_config') as any).select('tipo,conteudo'),
         supabase.from('profiles').select('cpf,telefone,is_aluna_jalilete,participante_anterior').eq('user_id', user.id).single(),
         (supabase.from('modalidades_config') as any).select('*').eq('ativo', true).order('ordem'),
-        (supabase.from('form_config') as any).select('*'),
+        (supabase as any).from('form_config').select('*'),
       ]);
 
       if (formConfigData) setFormConfigs(formConfigData);
