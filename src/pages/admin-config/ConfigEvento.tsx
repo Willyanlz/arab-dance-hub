@@ -20,8 +20,7 @@ export const ConfigEvento = () => {
   const [eventoDescricao, setEventoDescricao] = useState('');
   const [eventoBackgroundUrl, setEventoBackgroundUrl] = useState('');
   
-  const [regrasMusica, setRegrasMusica] = useState<string[]>([]);
-  const [regrasProibicoes, setRegrasProibicoes] = useState<string[]>([]);
+  const [regrasEProibicoes, setRegrasEProibicoes] = useState('');
   const [premiacoes, setPremiacoes] = useState<{categoria:string;valor:string}[]>([]);
   const [pontuacao, setPontuacao] = useState<{criterio:string;percentual:number}[]>([]);
 
@@ -40,8 +39,19 @@ export const ConfigEvento = () => {
       setEventoSubtitulo(map.evento_subtitulo || '');
       setEventoDescricao(map.evento_descricao || '');
       setEventoBackgroundUrl(map.evento_background_url || '');
-      setRegrasMusica(map.regras_musica || []);
-      setRegrasProibicoes(map.regras_proibicoes || []);
+      setRegrasEProibicoes(map.regras_e_proibicoes || '');
+      
+      // Fallback migration if new field is empty but old fields had data
+      if (!map.regras_e_proibicoes && (map.regras_musica?.length > 0 || map.regras_proibicoes?.length > 0)) {
+        let combined = '';
+        if (map.regras_musica?.length > 0) {
+          combined += 'REGRAS DE MÚSICA:\n' + map.regras_musica.filter(Boolean).map((r: string) => `• ${r}`).join('\n') + '\n\n';
+        }
+        if (map.regras_proibicoes?.length > 0) {
+          combined += 'PROIBIÇÕES:\n' + map.regras_proibicoes.filter(Boolean).map((r: string) => `• ${r}`).join('\n');
+        }
+        setRegrasEProibicoes(combined.trim());
+      }
       setPremiacoes(map.premiacoes || []);
       setPontuacao(map.pontuacao || []);
     }
@@ -80,8 +90,7 @@ export const ConfigEvento = () => {
       upsert('evento_subtitulo', eventoSubtitulo),
       upsert('evento_descricao', eventoDescricao),
       upsert('evento_background_url', eventoBackgroundUrl),
-      upsert('regras_musica', regrasMusica),
-      upsert('regras_proibicoes', regrasProibicoes),
+      upsert('regras_e_proibicoes', regrasEProibicoes),
       upsert('premiacoes', premiacoes),
       upsert('pontuacao', pontuacao),
       upsert('email_template_ingresso', { ...(templateMap.email_template_ingresso || {}), ...templateMirror }),
@@ -100,11 +109,7 @@ export const ConfigEvento = () => {
     reader.readAsDataURL(file);
   };
 
-  const addRegraMusica = () => setRegrasMusica([...regrasMusica, '']);
-  const updateRegraMusica = (i: number, v: string) => { const u = [...regrasMusica]; u[i]=v; setRegrasMusica(u); };
-  
-  const addRegraProibicao = () => setRegrasProibicoes([...regrasProibicoes, '']);
-  const updateRegraProibicao = (i: number, v: string) => { const u = [...regrasProibicoes]; u[i]=v; setRegrasProibicoes(u); };
+  // Removed array-based rule handlers
 
   const addPremiacao = () => setPremiacoes([...premiacoes, { categoria: '', valor: '' }]);
   const addPontuacao = () => setPontuacao([...pontuacao, { criterio: '', percentual: 0 }]);
@@ -152,34 +157,24 @@ export const ConfigEvento = () => {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* ── REGRAS ── */}
-        <Card className="bg-card border-border h-fit">
+        {/* ── REGRAS E PROIBIÇÕES ── */}
+        <Card className="bg-card border-border h-fit lg:col-span-2">
           <CardHeader>
-            <CardTitle className="font-serif text-lg flex items-center gap-2"><Music className="w-5 h-5 text-primary" />Regras de Música</CardTitle>
+            <CardTitle className="font-serif text-lg flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" /> Regras e Proibições
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Todas as regras e proibições do evento. Use quebras de linha para separar os itens.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {regrasMusica.map((r, i) => (
-              <div key={i} className="flex gap-2">
-                <Input value={r} onChange={e => updateRegraMusica(i, e.target.value)} className="bg-background border-border h-9 text-sm" />
-                <Button variant="ghost" size="icon" onClick={() => setRegrasMusica(regrasMusica.filter((_, idx) => idx !== i))} className="h-9 w-9 text-destructive"><Trash2 className="w-4 h-4" /></Button>
-              </div>
-            ))}
-            <Button variant="outline" size="sm" onClick={addRegraMusica} className="w-full border-dashed"><Plus className="w-4 h-4 mr-1" /> Adicionar Regra</Button>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border h-fit">
-          <CardHeader>
-            <CardTitle className="font-serif text-lg flex items-center gap-2"><Ban className="w-5 h-5 text-destructive" />Proibições</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {regrasProibicoes.map((r, i) => (
-              <div key={i} className="flex gap-2">
-                <Input value={r} onChange={e => updateRegraProibicao(i, e.target.value)} className="bg-background border-border h-9 text-sm" />
-                <Button variant="ghost" size="icon" onClick={() => setRegrasProibicoes(regrasProibicoes.filter((_, idx) => idx !== i))} className="h-9 w-9 text-destructive"><Trash2 className="w-4 h-4" /></Button>
-              </div>
-            ))}
-            <Button variant="outline" size="sm" onClick={addRegraProibicao} className="w-full border-dashed text-destructive border-destructive/30 hover:bg-destructive/5"><Plus className="w-4 h-4 mr-1" /> Adicionar Proibição</Button>
+          <CardContent>
+            <Textarea 
+              value={regrasEProibicoes} 
+              onChange={e => setRegrasEProibicoes(e.target.value)} 
+              rows={10} 
+              placeholder="Ex:&#10;• Não é permitido...&#10;• Músicas devem ter...&#10;• Proibido uso de..."
+              className="bg-background border-border resize-y font-sans leading-relaxed" 
+            />
           </CardContent>
         </Card>
 

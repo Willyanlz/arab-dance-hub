@@ -1,14 +1,16 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Ticket, Settings2, FileText, BookOpen, Store, Calendar, Shield, LayoutGrid, Coins, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Ticket, Settings2, FileText, BookOpen, Store, Calendar, Shield, LayoutGrid, Coins, ClipboardList, Menu, X } from 'lucide-react';
 
 const AdminConfig = () => {
   const { user, loading: authLoading, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin)) navigate('/login');
@@ -30,6 +32,7 @@ const AdminConfig = () => {
 
   const handleTabChange = (value: string) => {
     navigate(`/admin/config/${value}`);
+    setMobileMenuOpen(false);
   };
 
   const tabs = [
@@ -57,16 +60,58 @@ const AdminConfig = () => {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto py-8 px-4">
+      <main className="max-w-6xl mx-auto py-8 px-4 relative">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-serif font-bold text-foreground">Configurações do Sistema</h1>
             <p className="text-muted-foreground font-sans">Customize o evento, preços e regras do festival.</p>
           </div>
+          
+          <div className="md:hidden">
+            <Button 
+              variant="outline" 
+              className="w-full flex justify-between items-center border-border text-foreground h-12 px-4 font-sans"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              <span className="flex items-center gap-2">
+                {tabs.find(t => t.value === currentTab)?.icon && (
+                  <div className="p-1 bg-primary/10 rounded">
+                    {(() => {
+                      const Icon = tabs.find(t => t.value === currentTab)?.icon;
+                      return Icon ? <Icon className="w-4 h-4 text-primary" /> : null;
+                    })()}
+                  </div>
+                )}
+                {tabs.find(t => t.value === currentTab)?.label || 'Menu de Configurações'}
+              </span>
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
+          </div>
         </div>
 
+        {mobileMenuOpen && (
+          <div className="md:hidden absolute left-4 right-4 z-[40] bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-2xl p-2 animate-in fade-in zoom-in-95 duration-200">
+            <div className="grid grid-cols-1 gap-1">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.value}
+                  onClick={() => handleTabChange(tab.value)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-sans transition-colors ${
+                    currentTab === tab.value 
+                      ? 'bg-primary text-primary-foreground font-bold' 
+                      : 'text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <tab.icon className={`w-4 h-4 ${currentTab === tab.value ? 'text-primary-foreground' : 'text-primary'}`} />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-8">
-          <TabsList className="bg-muted/50 w-full flex-wrap h-auto gap-1 p-1 inline-flex justify-start border border-border">
+          <TabsList className="hidden md:inline-flex bg-muted/50 w-full flex-wrap h-auto gap-1 p-1 justify-start border border-border">
             {tabs.map((tab) => (
               <TabsTrigger 
                 key={tab.value} 

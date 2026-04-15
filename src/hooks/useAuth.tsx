@@ -24,34 +24,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // getSession restores from localStorage
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (mounted) {
+    // Initialize session and check admin role
+    const initializeAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      if (session) {
         setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) checkAdmin(session.user.id);
+        setUser(session.user);
+        await checkAdmin(session.user.id);
+      }
+      setLoading(false);
+    };
+
+    initializeAuth();
+
+    // Set up listener for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
+
+      if (session) {
+        setLoading(true); // Indicate we are checking role
+        setSession(session);
+        setUser(session.user);
+        await checkAdmin(session.user.id);
+        setLoading(false);
+      } else {
+        setSession(null);
+        setUser(null);
+        setIsAdmin(false);
         setLoading(false);
       }
     });
 
-    // Set up listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted) {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          checkAdmin(session.user.id);
-        } else {
-          setIsAdmin(false);
-        }
-      }
-    });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
   }, []);
+
 
   async function checkAdmin(userId: string) {
     const { data } = await supabase

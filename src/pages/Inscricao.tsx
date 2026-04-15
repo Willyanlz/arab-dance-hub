@@ -158,67 +158,83 @@ const Inscricao = () => {
   }, [user, authLoading]);
 
   // ── Load data ─────────────────────────────────────────────────────────────
+  // ── Real-time subscriptions ────────────────────────────────────────────────
   useEffect(() => {
+    const channel = supabase
+      .channel('inscricao-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'site_config' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lotes' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lotes_mostra' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lotes_workshop' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'modalidades_config' }, () => load())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
+  const load = async () => {
     if (!user) return;
-    const load = async () => {
-      setLoadingData(true);
-      const [
-        { data: lotesData },
-        { data: lotesMostraData },
-        { data: lotesWorkshopData },
-        { data: configData },
-        { data: workshopsData },
-        { data: termosData },
-        { data: profileData },
-        { data: modalidadesData },
-        { data: formConfigData },
-        { data: systemOptionsData },
-      ] = await Promise.all([
-        supabase.from('lotes').select('*').order('numero'),
-        (supabase.from('lotes_mostra') as any).select('*').order('numero'),
-        (supabase.from('lotes_workshop') as any).select('*').order('numero'),
-        supabase.from('site_config').select('chave,valor'),
-        (supabase.from('workshops_config') as any).select('*').eq('ativo', true).order('nome'),
-        (supabase.from('termos_config') as any).select('tipo,conteudo'),
-        supabase.from('profiles').select('cpf,telefone,is_aluna_jalilete,participante_anterior').eq('user_id', user.id).single(),
-        (supabase.from('modalidades_config') as any).select('*').eq('ativo', true).order('ordem'),
-        supabase.from('form_config').select('*'),
-        (supabase.from('system_options' as any) as any).select('*').order('ordem'),
-      ]);
+    setLoadingData(true);
+    const [
+      { data: lotesData },
+      { data: lotesMostraData },
+      { data: lotesWorkshopData },
+      { data: configData },
+      { data: workshopsData },
+      { data: termosData },
+      { data: profileData },
+      { data: modalidadesData },
+      { data: formConfigData },
+      { data: systemOptionsData },
+    ] = await Promise.all([
+      supabase.from('lotes').select('*').order('numero'),
+      (supabase.from('lotes_mostra') as any).select('*').order('numero'),
+      (supabase.from('lotes_workshop') as any).select('*').order('numero'),
+      supabase.from('site_config').select('chave,valor'),
+      (supabase.from('workshops_config') as any).select('*').eq('ativo', true).order('nome'),
+      (supabase.from('termos_config') as any).select('tipo,conteudo'),
+      supabase.from('profiles').select('cpf,telefone,is_aluna_jalilete,participante_anterior').eq('user_id', user.id).single(),
+      (supabase.from('modalidades_config') as any).select('*').eq('ativo', true).order('ordem'),
+      supabase.from('form_config').select('*'),
+      (supabase.from('system_options' as any) as any).select('*').order('ordem'),
+    ]);
 
-      if (formConfigData) setFormConfigs(formConfigData);
-      if (systemOptionsData) setSystemOptions(systemOptionsData as SystemOptionItem[]);
+    if (formConfigData) setFormConfigs(formConfigData);
+    if (systemOptionsData) setSystemOptions(systemOptionsData as SystemOptionItem[]);
 
-      if (lotesData) { setLotes(lotesData as any); setLoteAtual(getLoteAtual(lotesData as any)); }
-      if (lotesMostraData) { setLotesMostra(lotesMostraData as any); setLoteAtualMostra(getLoteAtual(lotesMostraData as any)); }
-      if (lotesWorkshopData) { setLotesWorkshop(lotesWorkshopData as any); setLoteAtualWorkshop(getLoteAtual(lotesWorkshopData as any)); }
-      if (workshopsData) setWorkshopsDisponiveis(workshopsData as any);
-      if (modalidadesData) setModalidadesConfig(modalidadesData);
-      if (termosData) {
-        const map: Record<string, string> = {};
-        (termosData as any[]).forEach((t: any) => { map[t.tipo] = t.conteudo; });
-        setTermosTexto(map);
-      }
-      if (configData) {
-        const map: Record<string, any> = {};
-        configData.forEach((c: any) => { map[c.chave] = c.valor; });
-        setComoSoubeOpcoes(Array.isArray(map.como_soube_opcoes) ? map.como_soube_opcoes : []);
-        setInscricoesAbertas({
-          competicao: map.inscricoes_abertas_competicao !== false,
-          mostra: map.inscricoes_abertas_mostra !== false,
-          workshop: map.inscricoes_abertas_workshop !== false,
-        });
-      }
-      if (profileData) {
-        setCpf(profileData.cpf || '');
-        setTelefone(profileData.telefone || '');
-        setIsJalilete(!!profileData.is_aluna_jalilete);
-        setIsAnterior(!!profileData.participante_anterior);
-      }
-      setLoadingData(false);
-    };
+    if (lotesData) { setLotes(lotesData as any); setLoteAtual(getLoteAtual(lotesData as any)); }
+    if (lotesMostraData) { setLotesMostra(lotesMostraData as any); setLoteAtualMostra(getLoteAtual(lotesMostraData as any)); }
+    if (lotesWorkshopData) { setLotesWorkshop(lotesWorkshopData as any); setLoteAtualWorkshop(getLoteAtual(lotesWorkshopData as any)); }
+    if (workshopsData) setWorkshopsDisponiveis(workshopsData as any);
+    if (modalidadesData) setModalidadesConfig(modalidadesData);
+    if (termosData) {
+      const map: Record<string, string> = {};
+      (termosData as any[]).forEach((t: any) => { map[t.tipo] = t.conteudo; });
+      setTermosTexto(map);
+    }
+    if (configData) {
+      const map: Record<string, any> = {};
+      configData.forEach((c: any) => { map[c.chave] = c.valor; });
+      setComoSoubeOpcoes(Array.isArray(map.como_soube_opcoes) ? map.como_soube_opcoes : []);
+      setInscricoesAbertas({
+        competicao: map.inscricoes_abertas_competicao !== false,
+        mostra: map.inscricoes_abertas_mostra !== false,
+        workshop: map.inscricoes_abertas_workshop !== false,
+      });
+    }
+    if (profileData) {
+      setCpf(profileData.cpf || '');
+      setTelefone(profileData.telefone || '');
+      setIsJalilete(!!profileData.is_aluna_jalilete);
+      setIsAnterior(!!profileData.participante_anterior);
+    }
+    setLoadingData(false);
+  };
+
+  useEffect(() => {
     load();
   }, [user]);
+
 
   // Derived: modalidades filtered by tipo and periodo
   const modalidadesComp = modalidadesConfig.filter(m => m.tipo === 'competicao' && (periodo === 'nao_competir' || m.periodo === periodo));
@@ -245,6 +261,29 @@ const Inscricao = () => {
     if (!user) return;
     setLoading(true);
     try {
+      // ── "Verifica no envio" ────────────────────────────────────────────────
+      const today = new Date().toISOString().split('T')[0];
+      let currentLoteValid = true;
+
+      if (tipoInscricao === 'competicao' && loteAtual) {
+        if (today < loteAtual.data_inicio || today > loteAtual.data_fim) currentLoteValid = false;
+      } else if (tipoInscricao === 'mostra' && loteAtualMostra) {
+        if (today < loteAtualMostra.data_inicio || today > loteAtualMostra.data_fim) currentLoteValid = false;
+      } else if (tipoInscricao === 'workshop' && loteAtualWorkshop) {
+        if (today < loteAtualWorkshop.data_inicio || today > loteAtualWorkshop.data_fim) currentLoteValid = false;
+      }
+
+      if (!currentLoteValid) {
+        toast({ 
+          title: 'Lote Expirado', 
+          description: 'O lote selecionado não é mais válido para a data de hoje. Por favor, recarregue para obter os novos preços.', 
+          variant: 'destructive' 
+        });
+        setLoading(false);
+        load(); // Refresh data
+        return;
+      }
+
       // Update profile
       await supabase.from('profiles').update({ cpf, telefone, is_aluna_jalilete: isJalilete, participante_anterior: isAnterior }).eq('user_id', user.id);
 

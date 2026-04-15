@@ -35,7 +35,9 @@ interface IngressoVendido {
   created_at: string;
   lote_ingresso_id: string | null;
   tipo_ingresso_id: string;
+  quantidade_validada: number;
 }
+
 
 const statusColors: Record<string, string> = {
   pendente: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -108,6 +110,25 @@ const AdminIngressos = () => {
       toast({ title: 'Erro ao atualizar', description: e.message, variant: 'destructive' });
     }
   };
+
+  const validarIngresso = async (ingresso: IngressoVendido) => {
+    const novaValidadada = (ingresso.quantidade_validada || 0) + 1;
+    if (novaValidadada > ingresso.quantidade) {
+      toast({ title: 'Erro', description: 'Todos os tickets dessa compra já foram validados.', variant: 'destructive' });
+      return;
+    }
+
+    if (!confirm(`Confirmar entrada de 1 pessoa para o ingresso de ${ingresso.nome_comprador}?\nUtilizados: ${novaValidadada}/${ingresso.quantidade}`)) return;
+
+    try {
+      await (supabase.from('ingressos_vendidos') as any).update({ quantidade_validada: novaValidadada }).eq('id', ingresso.id);
+      toast({ title: '✅ Entrada validada!' });
+      loadData();
+    } catch (e: any) {
+      toast({ title: 'Erro ao validar', description: e.message, variant: 'destructive' });
+    }
+  };
+
 
   const exportCSV = () => {
     const rows = [
@@ -237,35 +258,44 @@ const AdminIngressos = () => {
           <CardContent>
             <div className="space-y-3">
               {lotes.map(lote => {
-                const vendaLote = vendidos.filter(v => v.lote_ingresso_id === lote.id && v.status !== 'cancelado');
-                const qtdVendida = vendaLote.reduce((s, v) => s + v.quantidade, 0);
-                const receita = vendaLote.filter(v => v.status === 'confirmado' || v.status === 'pago').reduce((s, v) => s + Number(v.valor_total), 0);
-                const pct = lote.quantidade_total > 0 ? Math.round((qtdVendida / lote.quantidade_total) * 100) : 0;
+                const vendaLote = vendidos.filter(v => 
+                  (v.lote_ingresso_id === lote.id || (v as any).tipo_ingresso?.lote_ingresso_id === lote.id) 
+                  && v.status !== 'cancelado'
+                );
+                const qtdVendida = vendaLote.reduce((s, v) => s + (v.quantidade || 0), 0);
+                const receita = vendaLote
+                  .filter(v => v.status === 'confirmado' || v.status === 'pago')
+                  .reduce((s, v) => s + Number(v.valor_total || 0), 0);
+                
+                const totalLote = Number(lote.quantidade_total || 0);
+                const pct = totalLote > 0 ? Math.round((qtdVendida / totalLote) * 100) : 0;
+                
                 return (
                   <div key={lote.id} className="p-3 rounded-lg border border-border bg-muted/30 space-y-2">
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="font-sans font-semibold text-foreground text-sm">{lote.nome}</p>
-                        <p className="text-xs text-muted-foreground font-sans">R$ {Number(lote.preco).toFixed(2)}/un</p>
+                        <p className="text-xs text-muted-foreground font-sans">R$ {Number(lote.preco || 0).toFixed(2)}/un</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-sans text-sm text-foreground font-bold">{qtdVendida}/{lote.quantidade_total}</p>
+                        <p className="font-sans text-sm text-foreground font-bold">{qtdVendida}/{totalLote}</p>
                         <p className="text-xs text-primary font-sans">R$ {receita.toFixed(0)}</p>
                       </div>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
                       <div
                         className="bg-gradient-gold h-2 rounded-full transition-all"
-                        style={{ width: `${pct}%` }}
+                        style={{ width: `${Math.min(100, pct)}%` }}
                       />
                     </div>
-                    <p className="text-xs text-muted-foreground font-sans">{pct}% vendido • {lote.quantidade_total - qtdVendida} restantes</p>
+                    <p className="text-xs text-muted-foreground font-sans">{pct}% vendido • {Math.max(0, totalLote - qtdVendida)} restantes</p>
                   </div>
                 );
               })}
             </div>
           </CardContent>
         </Card>
+
 
         {/* ── Lista de compradores ── */}
         <Card className="bg-card border-border">
@@ -315,13 +345,24 @@ const AdminIngressos = () => {
                         <p className="text-xs text-muted-foreground font-sans">
                           {v.quantidade}x ingresso • {lote?.nome || '-'} • {new Date(v.created_at).toLocaleDateString('pt-BR')}
                         </p>
+                        {v.quantidade_validada > 0 && (
+                          <p className="text-xs text-green-500 font-bold font-sans flex items-center gap-1 mt-1">
+                            <CheckCircle2 className="w-3 h-3" /> {v.quantidade_validada}/{v.quantidade} utilizados
+                          </p>
+                        )}
                       </div>
+
                       <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2">
                         <p className="font-bold text-primary font-sans">R$ {Number(v.valor_total).toFixed(2)}</p>
                         <Badge className={`${statusColors[v.status]} border text-xs flex items-center gap-1`}>
                           {statusIcons[v.status]} {v.status}
                         </Badge>
                         <div className="flex gap-1">
+                          {(v.status === 'confirmado' || v.status === 'pago') && v.quantidade_validada < v.quantidade && (
+                            <Button size="sm" onClick={() => validarIngresso(v)} className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs px-2 py-1 h-7 font-sans">
+                              Dar Baixa
+                            </Button>
+                          )}
                           {(v.status === 'pago' || v.status === 'pendente') && (
                             <Button size="sm" onClick={() => updateStatus(v.id, 'confirmado')} className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 h-7 font-sans">
                               Confirmar + E-mail
@@ -333,6 +374,7 @@ const AdminIngressos = () => {
                             </Button>
                           )}
                         </div>
+
                       </div>
                     </div>
                   );

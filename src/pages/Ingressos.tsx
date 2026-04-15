@@ -79,6 +79,36 @@ const Ingressos = () => {
     });
   }, [user]);
 
+  // Real-time updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('tipos-ingresso-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tipos_ingresso' }, (payload) => {
+        console.log('Change detected:', payload);
+        // Refresh all tipos to stay synced
+        supabase.from('tipos_ingresso').select('*').eq('ativo', true).then(({ data }) => {
+          if (data) {
+            const available = (data as TipoIngresso[]).filter(t => (t.quantidade_total - t.quantidade_vendida) > 0);
+            setTipos(available);
+            // If the selected one changed or became unavailable
+            if (selectedTipo) {
+              const updated = data.find(t => t.id === selectedTipo.id);
+              if (!updated || updated.quantidade_total - updated.quantidade_vendida <= 0) {
+                setSelectedTipo(null);
+                setShowForm(false);
+                toast({ title: 'Ingresso Esgotado', description: 'O ingresso que você selecionou acabou de se esgotar.', variant: 'destructive' });
+              } else {
+                setSelectedTipo(updated as TipoIngresso);
+              }
+            }
+          }
+        });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedTipo]);
+
   const precoFinal = () => {
     if (!selectedTipo) return 0;
     return selectedTipo.preco * quantidade;
@@ -106,6 +136,28 @@ const Ingressos = () => {
 
     setSubmitting(true);
     try {
+      // ── "Verifica no envio" ────────────────────────────────────────────────
+      const { data: currentTipo, error: checkError } = await supabase
+        .from('tipos_ingresso')
+        .select('quantidade_total, quantidade_vendida, ativo')
+        .eq('id', selectedTipo.id)
+        .single();
+
+      if (checkError || !currentTipo || !currentTipo.ativo || (currentTipo.quantidade_total - currentTipo.quantidade_vendida) < quantidade) {
+        toast({ 
+          title: 'Não foi possível finalizar', 
+          description: 'O estoque mudou ou o ingresso não está mais disponível. Por favor, recomece a seleção.', 
+          variant: 'destructive' 
+        });
+        setSubmitting(false);
+        // Refresh
+        const { data: freshTipos } = await supabase.from('tipos_ingresso').select('*').eq('ativo', true);
+        if (freshTipos) setTipos(freshTipos as TipoIngresso[]);
+        setSelectedTipo(null);
+        setShowForm(false);
+        return;
+      }
+
       const isAutomaticPayment = metodoPagamento === 'cartao';
       const gatewayResult = await initializePaymentGateway({
         metodo: metodoPagamento,
@@ -116,6 +168,7 @@ const Ingressos = () => {
 
       const { data: saleData, error: saleError } = await supabase.from('ingressos_vendidos').insert({
         tipo_ingresso_id: selectedTipo.id,
+        lote_ingresso_id: selectedTipo.lote_ingresso_id, // Added this relationship
         user_id: user?.id || null,
         nome_comprador: nome,
         cpf,
@@ -127,6 +180,13 @@ const Ingressos = () => {
       }).select().single();
 
       if (saleError) throw saleError;
+
+      // Update manual stock if not confirmed by trigger (trigger handles confirmados)
+      if (!isAutomaticPayment) {
+        // We don't update quantidade_vendida here yet because it's 'pendente'
+        // But the business logic might want to reserve it? 
+        // For now, following the trigger logic which updates only on confirm/pagamento
+      }
 
       if (isAutomaticPayment && saleData) {
         supabase.functions.invoke('send-ticket', {

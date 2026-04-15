@@ -298,18 +298,18 @@ const Admin = () => {
         </div>
       </header>
       {mobileMenuOpen && (
-        <div className="sm:hidden border-b border-border bg-card px-4 py-3">
+        <div className="sm:hidden absolute top-[73px] left-0 right-0 z-50 border-b border-border bg-card/95 backdrop-blur-md px-4 py-4 shadow-xl animate-in slide-in-from-top duration-300">
           <div className="max-w-7xl mx-auto grid grid-cols-1 gap-2">
-            <Button asChild variant="outline" size="sm" className="justify-start border-border text-foreground font-sans">
+            <Button asChild variant="outline" size="sm" className="justify-start border-border text-foreground font-sans hover:bg-accent h-11">
               <Link to="/admin/config" onClick={() => setMobileMenuOpen(false)}>⚙️ Configurações</Link>
             </Button>
-            <Button asChild variant="outline" size="sm" className="justify-start border-border text-foreground font-sans">
+            <Button asChild variant="outline" size="sm" className="justify-start border-border text-foreground font-sans hover:bg-accent h-11">
               <Link to="/admin/ingressos" onClick={() => setMobileMenuOpen(false)}>🎫 Ingressos</Link>
             </Button>
-            <Button asChild variant="outline" size="sm" className="justify-start border-border text-foreground font-sans">
+            <Button asChild variant="outline" size="sm" className="justify-start border-border text-foreground font-sans hover:bg-accent h-11">
               <Link to="/admin/scanner" onClick={() => setMobileMenuOpen(false)}><QrCode className="w-4 h-4 mr-1" /> Scanner</Link>
             </Button>
-            <Button variant="ghost" size="sm" onClick={signOut} className="justify-start text-muted-foreground font-sans">Sair</Button>
+            <Button variant="ghost" size="sm" onClick={signOut} className="justify-start text-muted-foreground font-sans h-11">Sair</Button>
           </div>
         </div>
       )}

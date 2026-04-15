@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, Trophy, Music, Users, Star, Ticket, Camera, Scissors, CircleDot } from 'lucide-react';
+import { Calendar, MapPin, Trophy, Music, Users, Star, Ticket, Camera, Scissors, CircleDot, Shield } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
 import { PREMIACOES as DEFAULT_PREMIACOES, PONTUACAO as DEFAULT_PONTUACAO, MODALIDADES as DEFAULT_MODALIDADES } from '@/lib/constants';
 
@@ -39,15 +39,46 @@ const Index = () => {
         const map: Record<string, any> = {};
         configData.forEach((c: any) => { map[c.chave] = c.valor; });
         setConfig(map);
-        if (Array.isArray(map.premiacoes) && map.premiacoes.length > 0) setPremiacoes(map.premiacoes);
+        
+        // Only override defaults if data exists in config
+        if (Array.isArray(map.premiacoes) && map.premiacoes.length > 0) {
+          setPremiacoes(map.premiacoes);
+        } else if (map.hasOwnProperty('premiacoes')) {
+          setPremiacoes([]); // Explicitly empty if key exists but is empty
+        }
+
         if (Array.isArray(map.pontuacao) && map.pontuacao.length > 0) {
           const obj: Record<string, number> = {};
           map.pontuacao.forEach((p: any) => { obj[p.criterio] = p.percentual; });
           setPontuacao(obj);
+        } else if (map.hasOwnProperty('pontuacao')) {
+          setPontuacao({}); // Explicitly empty
         }
-        if (Array.isArray(map.stands_feirinha)) setStands(map.stands_feirinha);
+
+        if (Array.isArray(map.stands_feirinha)) {
+          setStands(map.stands_feirinha);
+        }
+
+        // Handle rules migration/fallback
+        if (!map.regras_e_proibicoes && (map.regras_musica?.length > 0 || map.regras_proibicoes?.length > 0)) {
+          let combined = '';
+          if (map.regras_musica?.length > 0) {
+            combined += 'REGRAS DE MÚSICA:\n' + map.regras_musica.filter(Boolean).map((r: string) => `• ${r}`).join('\n') + '\n\n';
+          }
+          if (map.regras_proibicoes?.length > 0) {
+            combined += 'PROIBIÇÕES:\n' + map.regras_proibicoes.filter(Boolean).map((r: string) => `• ${r}`).join('\n');
+          }
+          map.regras_e_proibicoes = combined.trim();
+          setConfig(prev => ({ ...prev, regras_e_proibicoes: combined.trim() }));
+        }
       }
-      if (modData && modData.length > 0) setModalidades(modData.map((m: any) => m.nome));
+      
+      if (modData && modData.length > 0) {
+        setModalidades(modData.map((m: any) => m.nome));
+      } else {
+        setModalidades([]); // Hide if no modalities are found
+      }
+      
       setLoaded(true);
     };
     load();
@@ -64,14 +95,15 @@ const Index = () => {
   const eventoDescricao = c('evento_descricao', 'Competições • Mostras • Workshops • Premiações');
   const eventoBackgroundUrl = c('evento_background_url', '');
 
-  // Rules from config or defaults
-  const regrasMusica = Array.isArray(config.regras_musica) ? config.regras_musica.filter(Boolean) : [];
-  const regrasProibicoes = Array.isArray(config.regras_proibicoes) ? config.regras_proibicoes.filter(Boolean) : [];
-  const hasModalidades = modalidades.length > 0;
-  const hasPremiacoes = Array.isArray(premiacoes) && premiacoes.length > 0;
-  const hasPontuacao = Object.keys(pontuacao || {}).length > 0;
-  const hasRegras = regrasMusica.length > 0 || regrasProibicoes.length > 0;
-  const hasStands = stands.length > 0;
+  // Rules from config
+  const regrasEProibicoes = config.regras_e_proibicoes || '';
+  
+  // Section visibility logic: only show if explicitly configured and has items
+  const hasModalidades = loaded && modalidades.length > 0;
+  const hasPremiacoes = loaded && Array.isArray(premiacoes) && premiacoes.length > 0;
+  const hasPontuacao = loaded && Object.keys(pontuacao || {}).length > 0;
+  const hasRegras = loaded && !!regrasEProibicoes.trim();
+  const hasStands = loaded && stands.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -212,32 +244,23 @@ const Index = () => {
         </div>
       </section>}
 
-      {/* Regras */}
+      {/* Regras e Proibições */}
       {hasRegras && <section className="py-20 px-4 bg-card">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-serif font-bold text-center mb-12 text-foreground">
-            Regras Importantes
+            Regras e Proibições
           </h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="bg-card border-border">
-              <CardContent className="p-6">
-                <Music className="w-6 h-6 text-primary mb-3" />
-                <h3 className="font-serif font-semibold text-foreground mb-2">Música</h3>
-                <ul className="text-sm text-muted-foreground space-y-1 font-sans">
-                  {regrasMusica.map((r: string, i: number) => <li key={i}>• {r}</li>)}
-                </ul>
-              </CardContent>
-            </Card>
-            <Card className="bg-card border-border">
-              <CardContent className="p-6">
-                <Star className="w-6 h-6 text-destructive mb-3" />
-                <h3 className="font-serif font-semibold text-foreground mb-2">Proibições</h3>
-                <ul className="text-sm text-muted-foreground space-y-1 font-sans">
-                  {regrasProibicoes.map((r: string, i: number) => <li key={i}>• {r}</li>)}
-                </ul>
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="bg-card border-border overflow-hidden">
+            <CardContent className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <Shield className="w-8 h-8 text-primary" />
+                <h3 className="text-xl font-serif font-semibold text-foreground">Informações Importantes</h3>
+              </div>
+              <div className="text-muted-foreground font-sans whitespace-pre-line leading-relaxed text-lg">
+                {regrasEProibicoes}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </section>}
 
