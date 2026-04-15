@@ -72,8 +72,8 @@ export default function AdminScanner() {
     }
 
     try {
-      const { error } = await supabase
-        .from('ingressos_vendidos')
+      const { error } = await (supabase
+        .from('ingressos_vendidos') as any)
         .update({ quantidade_validada: novaValidadada })
         .eq('id', ticket.id);
 
