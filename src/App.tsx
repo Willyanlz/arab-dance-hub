@@ -59,6 +59,7 @@ const App = () => (
               <Route path="ingressos" element={<ConfigIngressos />} />
               <Route path="stands" element={<ConfigStands />} />
               <Route path="landpage" element={<ConfigEvento />} />
+              <Route path="email-template" element={<ConfigEmailTemplate />} />
               <Route path="admins" element={<AdminRoles />} />
             </Route>
             <Route path="/admin/ingressos" element={<AdminIngressos />} />
