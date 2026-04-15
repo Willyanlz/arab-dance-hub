@@ -45,7 +45,7 @@ const Ingressos = () => {
       supabase.from('site_config').select('*').in('chave', ['evento_pix', 'pix_chave', 'pix_banco']),
     ]).then(([{ data: tiposData }, { data: configData }]) => {
       if (tiposData) {
-        const available = tiposData.filter(t => (t.quantidade_total - t.quantidade_vendida) > 0);
+        const available = (tiposData as TipoIngresso[]).filter(t => (t.quantidade_total - t.quantidade_vendida) > 0);
         setTipos(available);
         if (available.length > 0) setSelectedTipo(available[0]);
       }

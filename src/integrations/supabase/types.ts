@@ -14,84 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
-      form_config: {
-        Row: {
-          created_at: string
-          fields: Json
-          id: string
-          tipo_inscricao: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          fields?: Json
-          id?: string
-          tipo_inscricao: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          fields?: Json
-          id?: string
-          tipo_inscricao?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       ingressos_vendidos: {
         Row: {
           cpf: string
-          created_at: string | null
+          created_at: string
           email: string
           id: string
-          lote_ingresso_id: string | null
           nome_comprador: string
           quantidade: number
           status: string
           telefone: string | null
           tipo_ingresso_id: string
-          updated_at: string | null
+          updated_at: string
           user_id: string | null
           valor_total: number
         }
         Insert: {
           cpf: string
-          created_at?: string | null
+          created_at?: string
           email: string
           id?: string
-          lote_ingresso_id?: string | null
           nome_comprador: string
           quantidade?: number
           status?: string
           telefone?: string | null
           tipo_ingresso_id: string
-          updated_at?: string | null
+          updated_at?: string
           user_id?: string | null
           valor_total: number
         }
         Update: {
           cpf?: string
-          created_at?: string | null
+          created_at?: string
           email?: string
           id?: string
-          lote_ingresso_id?: string | null
           nome_comprador?: string
           quantidade?: number
           status?: string
           telefone?: string | null
           tipo_ingresso_id?: string
-          updated_at?: string | null
+          updated_at?: string
           user_id?: string | null
           valor_total?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "ingressos_vendidos_lote_ingresso_id_fkey"
-            columns: ["lote_ingresso_id"]
-            isOneToOne: false
-            referencedRelation: "lotes_ingresso"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "ingressos_vendidos_tipo_ingresso_id_fkey"
             columns: ["tipo_ingresso_id"]
@@ -103,19 +69,19 @@ export type Database = {
       }
       inscricao_workshops: {
         Row: {
-          created_at: string | null
+          created_at: string
           id: string
           inscricao_id: string
           workshop_id: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           id?: string
           inscricao_id: string
           workshop_id: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           id?: string
           inscricao_id?: string
           workshop_id?: string
@@ -141,22 +107,20 @@ export type Database = {
         Row: {
           categoria: Database["public"]["Enums"]["categoria_tipo"]
           como_soube: string | null
-          created_at: string | null
+          created_at: string
           desconto_percentual: number | null
-          extra_harem: boolean | null
           faixa_etaria: string | null
           id: string
           lote_id: string | null
-          lote_ingresso_id: string | null
           lote_mostra_id: string | null
           lote_workshop_id: string | null
           modalidade: string
-          modalidade_id: string | null
           nome_artistico: string | null
           nome_coreografia: string
           nome_escola: string | null
           num_integrantes: number | null
           observacoes: string | null
+          participa_harem: boolean | null
           periodo: Database["public"]["Enums"]["periodo_tipo"]
           preferencia_periodo: string | null
           professora: string | null
@@ -166,33 +130,31 @@ export type Database = {
           termos_musica: boolean | null
           termos_sem_ensaio: boolean | null
           tipo_compra_workshop: string | null
-          tipo_inscricao: string
+          tipo_inscricao: string | null
           tipo_musica: Database["public"]["Enums"]["musica_tipo"]
-          tipo_participacao: string | null
-          updated_at: string | null
+          tipo_participacao_mostra: string | null
+          updated_at: string
           user_id: string
           valor_final: number | null
           valor_total: number | null
         }
         Insert: {
-          categoria?: Database["public"]["Enums"]["categoria_tipo"]
+          categoria: Database["public"]["Enums"]["categoria_tipo"]
           como_soube?: string | null
-          created_at?: string | null
+          created_at?: string
           desconto_percentual?: number | null
-          extra_harem?: boolean | null
           faixa_etaria?: string | null
           id?: string
           lote_id?: string | null
-          lote_ingresso_id?: string | null
           lote_mostra_id?: string | null
           lote_workshop_id?: string | null
-          modalidade?: string
-          modalidade_id?: string | null
+          modalidade: string
           nome_artistico?: string | null
-          nome_coreografia?: string
+          nome_coreografia: string
           nome_escola?: string | null
           num_integrantes?: number | null
           observacoes?: string | null
+          participa_harem?: boolean | null
           periodo?: Database["public"]["Enums"]["periodo_tipo"]
           preferencia_periodo?: string | null
           professora?: string | null
@@ -202,10 +164,10 @@ export type Database = {
           termos_musica?: boolean | null
           termos_sem_ensaio?: boolean | null
           tipo_compra_workshop?: string | null
-          tipo_inscricao?: string
+          tipo_inscricao?: string | null
           tipo_musica?: Database["public"]["Enums"]["musica_tipo"]
-          tipo_participacao?: string | null
-          updated_at?: string | null
+          tipo_participacao_mostra?: string | null
+          updated_at?: string
           user_id: string
           valor_final?: number | null
           valor_total?: number | null
@@ -213,22 +175,20 @@ export type Database = {
         Update: {
           categoria?: Database["public"]["Enums"]["categoria_tipo"]
           como_soube?: string | null
-          created_at?: string | null
+          created_at?: string
           desconto_percentual?: number | null
-          extra_harem?: boolean | null
           faixa_etaria?: string | null
           id?: string
           lote_id?: string | null
-          lote_ingresso_id?: string | null
           lote_mostra_id?: string | null
           lote_workshop_id?: string | null
           modalidade?: string
-          modalidade_id?: string | null
           nome_artistico?: string | null
           nome_coreografia?: string
           nome_escola?: string | null
           num_integrantes?: number | null
           observacoes?: string | null
+          participa_harem?: boolean | null
           periodo?: Database["public"]["Enums"]["periodo_tipo"]
           preferencia_periodo?: string | null
           professora?: string | null
@@ -238,10 +198,10 @@ export type Database = {
           termos_musica?: boolean | null
           termos_sem_ensaio?: boolean | null
           tipo_compra_workshop?: string | null
-          tipo_inscricao?: string
+          tipo_inscricao?: string | null
           tipo_musica?: Database["public"]["Enums"]["musica_tipo"]
-          tipo_participacao?: string | null
-          updated_at?: string | null
+          tipo_participacao_mostra?: string | null
+          updated_at?: string
           user_id?: string
           valor_final?: number | null
           valor_total?: number | null
@@ -252,13 +212,6 @@ export type Database = {
             columns: ["lote_id"]
             isOneToOne: false
             referencedRelation: "lotes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inscricoes_lote_ingresso_id_fkey"
-            columns: ["lote_ingresso_id"]
-            isOneToOne: false
-            referencedRelation: "lotes_ingresso"
             referencedColumns: ["id"]
           },
           {
@@ -275,23 +228,14 @@ export type Database = {
             referencedRelation: "lotes_workshop"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "inscricoes_modalidade_id_fkey"
-            columns: ["modalidade_id"]
-            isOneToOne: false
-            referencedRelation: "modalidades_config"
-            referencedColumns: ["id"]
-          },
         ]
       }
       lotes: {
         Row: {
           ativo: boolean | null
-          created_at: string | null
-          data_dobro: string | null
+          created_at: string
           data_fim: string
           data_inicio: string
-          data_limite: string | null
           id: string
           nome: string
           numero: number
@@ -301,25 +245,21 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean | null
-          created_at?: string | null
-          data_dobro?: string | null
+          created_at?: string
           data_fim: string
           data_inicio: string
-          data_limite?: string | null
           id?: string
           nome: string
           numero: number
-          preco_dupla_trio?: number
-          preco_grupo_por_integrante?: number
-          preco_solo?: number
+          preco_dupla_trio: number
+          preco_grupo_por_integrante: number
+          preco_solo: number
         }
         Update: {
           ativo?: boolean | null
-          created_at?: string | null
-          data_dobro?: string | null
+          created_at?: string
           data_fim?: string
           data_inicio?: string
-          data_limite?: string | null
           id?: string
           nome?: string
           numero?: number
@@ -332,59 +272,39 @@ export type Database = {
       lotes_ingresso: {
         Row: {
           ativo: boolean | null
-          created_at: string | null
-          data_dobro: string | null
+          created_at: string
           data_fim: string
           data_inicio: string
-          data_limite: string | null
-          descricao: string | null
           id: string
           nome: string
           numero: number
-          preco: number
-          quantidade_total: number | null
-          quantidade_vendida: number | null
         }
         Insert: {
           ativo?: boolean | null
-          created_at?: string | null
-          data_dobro?: string | null
+          created_at?: string
           data_fim: string
           data_inicio: string
-          data_limite?: string | null
-          descricao?: string | null
           id?: string
           nome: string
           numero: number
-          preco?: number
-          quantidade_total?: number | null
-          quantidade_vendida?: number | null
         }
         Update: {
           ativo?: boolean | null
-          created_at?: string | null
-          data_dobro?: string | null
+          created_at?: string
           data_fim?: string
           data_inicio?: string
-          data_limite?: string | null
-          descricao?: string | null
           id?: string
           nome?: string
           numero?: number
-          preco?: number
-          quantidade_total?: number | null
-          quantidade_vendida?: number | null
         }
         Relationships: []
       }
       lotes_mostra: {
         Row: {
           ativo: boolean | null
-          created_at: string | null
-          data_dobro: string | null
+          created_at: string
           data_fim: string
           data_inicio: string
-          data_limite: string | null
           id: string
           nome: string
           numero: number
@@ -394,25 +314,21 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean | null
-          created_at?: string | null
-          data_dobro?: string | null
+          created_at?: string
           data_fim: string
           data_inicio: string
-          data_limite?: string | null
           id?: string
           nome: string
           numero: number
-          preco_dupla_trio?: number
-          preco_grupo_por_integrante?: number
-          preco_solo?: number
+          preco_dupla_trio: number
+          preco_grupo_por_integrante: number
+          preco_solo: number
         }
         Update: {
           ativo?: boolean | null
-          created_at?: string | null
-          data_dobro?: string | null
+          created_at?: string
           data_fim?: string
           data_inicio?: string
-          data_limite?: string | null
           id?: string
           nome?: string
           numero?: number
@@ -425,11 +341,9 @@ export type Database = {
       lotes_workshop: {
         Row: {
           ativo: boolean | null
-          created_at: string | null
-          data_dobro: string | null
+          created_at: string
           data_fim: string
           data_inicio: string
-          data_limite: string | null
           id: string
           nome: string
           numero: number
@@ -442,28 +356,24 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean | null
-          created_at?: string | null
-          data_dobro?: string | null
+          created_at?: string
           data_fim: string
           data_inicio: string
-          data_limite?: string | null
           id?: string
           nome: string
           numero: number
-          preco_1_aula?: number
-          preco_2_aulas?: number
-          preco_3_aulas?: number
-          preco_4_aulas?: number
-          preco_5_aulas?: number
-          preco_pacote_completo?: number
+          preco_1_aula: number
+          preco_2_aulas: number
+          preco_3_aulas: number
+          preco_4_aulas: number
+          preco_5_aulas: number
+          preco_pacote_completo: number
         }
         Update: {
           ativo?: boolean | null
-          created_at?: string | null
-          data_dobro?: string | null
+          created_at?: string
           data_fim?: string
           data_inicio?: string
-          data_limite?: string | null
           id?: string
           nome?: string
           numero?: number
@@ -479,12 +389,9 @@ export type Database = {
       modalidades_config: {
         Row: {
           ativo: boolean | null
-          created_at: string | null
-          faixa_etaria_label: string | null
-          faixa_etaria_max: number | null
-          faixa_etaria_min: number | null
-          horario_fim: string | null
-          horario_inicio: string | null
+          created_at: string
+          faixa_etaria: string | null
+          horario: string | null
           id: string
           nome: string
           ordem: number | null
@@ -493,26 +400,20 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean | null
-          created_at?: string | null
-          faixa_etaria_label?: string | null
-          faixa_etaria_max?: number | null
-          faixa_etaria_min?: number | null
-          horario_fim?: string | null
-          horario_inicio?: string | null
+          created_at?: string
+          faixa_etaria?: string | null
+          horario?: string | null
           id?: string
           nome: string
           ordem?: number | null
           periodo?: string
-          tipo: string
+          tipo?: string
         }
         Update: {
           ativo?: boolean | null
-          created_at?: string | null
-          faixa_etaria_label?: string | null
-          faixa_etaria_max?: number | null
-          faixa_etaria_min?: number | null
-          horario_fim?: string | null
-          horario_inicio?: string | null
+          created_at?: string
+          faixa_etaria?: string | null
+          horario?: string | null
           id?: string
           nome?: string
           ordem?: number | null
@@ -524,32 +425,32 @@ export type Database = {
       pagamentos: {
         Row: {
           comprovante_url: string | null
-          created_at: string | null
+          created_at: string
           id: string
           inscricao_id: string
           metodo: Database["public"]["Enums"]["pagamento_metodo"]
           status: Database["public"]["Enums"]["status_inscricao"]
-          updated_at: string | null
+          updated_at: string
           valor: number
         }
         Insert: {
           comprovante_url?: string | null
-          created_at?: string | null
+          created_at?: string
           id?: string
           inscricao_id: string
-          metodo?: Database["public"]["Enums"]["pagamento_metodo"]
+          metodo: Database["public"]["Enums"]["pagamento_metodo"]
           status?: Database["public"]["Enums"]["status_inscricao"]
-          updated_at?: string | null
+          updated_at?: string
           valor: number
         }
         Update: {
           comprovante_url?: string | null
-          created_at?: string | null
+          created_at?: string
           id?: string
           inscricao_id?: string
           metodo?: Database["public"]["Enums"]["pagamento_metodo"]
           status?: Database["public"]["Enums"]["status_inscricao"]
-          updated_at?: string | null
+          updated_at?: string
           valor?: number
         }
         Relationships: [
@@ -565,7 +466,7 @@ export type Database = {
       participantes: {
         Row: {
           cpf: string | null
-          created_at: string | null
+          created_at: string
           email: string | null
           id: string
           inscricao_id: string
@@ -574,7 +475,7 @@ export type Database = {
         }
         Insert: {
           cpf?: string | null
-          created_at?: string | null
+          created_at?: string
           email?: string | null
           id?: string
           inscricao_id: string
@@ -583,7 +484,7 @@ export type Database = {
         }
         Update: {
           cpf?: string | null
-          created_at?: string | null
+          created_at?: string
           email?: string | null
           id?: string
           inscricao_id?: string
@@ -603,38 +504,38 @@ export type Database = {
       profiles: {
         Row: {
           cpf: string
-          created_at: string | null
+          created_at: string
           email: string
           id: string
           is_aluna_jalilete: boolean | null
           nome: string
           participante_anterior: boolean | null
           telefone: string
-          updated_at: string | null
+          updated_at: string
           user_id: string
         }
         Insert: {
           cpf?: string
-          created_at?: string | null
+          created_at?: string
           email?: string
           id?: string
           is_aluna_jalilete?: boolean | null
           nome?: string
           participante_anterior?: boolean | null
           telefone?: string
-          updated_at?: string | null
+          updated_at?: string
           user_id: string
         }
         Update: {
           cpf?: string
-          created_at?: string | null
+          created_at?: string
           email?: string
           id?: string
           is_aluna_jalilete?: boolean | null
           nome?: string
           participante_anterior?: boolean | null
           telefone?: string
-          updated_at?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -642,26 +543,26 @@ export type Database = {
       site_config: {
         Row: {
           chave: string
-          created_at: string | null
+          created_at: string
           descricao: string | null
           id: string
-          updated_at: string | null
+          updated_at: string
           valor: Json
         }
         Insert: {
           chave: string
-          created_at?: string | null
+          created_at?: string
           descricao?: string | null
           id?: string
-          updated_at?: string | null
+          updated_at?: string
           valor?: Json
         }
         Update: {
           chave?: string
-          created_at?: string | null
+          created_at?: string
           descricao?: string | null
           id?: string
-          updated_at?: string | null
+          updated_at?: string
           valor?: Json
         }
         Relationships: []
@@ -669,62 +570,73 @@ export type Database = {
       termos_config: {
         Row: {
           conteudo: string
+          created_at: string
           id: string
           tipo: string
-          titulo: string | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
-          conteudo: string
+          conteudo?: string
+          created_at?: string
           id?: string
           tipo: string
-          titulo?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           conteudo?: string
+          created_at?: string
           id?: string
           tipo?: string
-          titulo?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
       tipos_ingresso: {
         Row: {
           ativo: boolean
-          created_at: string | null
+          created_at: string
           descricao: string | null
           id: string
+          lote_ingresso_id: string | null
           nome: string
           preco: number
           quantidade_total: number
           quantidade_vendida: number
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           ativo?: boolean
-          created_at?: string | null
+          created_at?: string
           descricao?: string | null
           id?: string
+          lote_ingresso_id?: string | null
           nome: string
           preco?: number
           quantidade_total?: number
           quantidade_vendida?: number
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           ativo?: boolean
-          created_at?: string | null
+          created_at?: string
           descricao?: string | null
           id?: string
+          lote_ingresso_id?: string | null
           nome?: string
           preco?: number
           quantidade_total?: number
           quantidade_vendida?: number
-          updated_at?: string | null
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tipos_ingresso_lote_ingresso_id_fkey"
+            columns: ["lote_ingresso_id"]
+            isOneToOne: false
+            referencedRelation: "lotes_ingresso"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -747,36 +659,30 @@ export type Database = {
       workshops_config: {
         Row: {
           ativo: boolean | null
-          created_at: string | null
-          descricao: string | null
+          created_at: string
           horario: string | null
           id: string
           nome: string
           periodo: string | null
           professor: string | null
-          updated_at: string | null
         }
         Insert: {
           ativo?: boolean | null
-          created_at?: string | null
-          descricao?: string | null
+          created_at?: string
           horario?: string | null
           id?: string
           nome: string
           periodo?: string | null
           professor?: string | null
-          updated_at?: string | null
         }
         Update: {
           ativo?: boolean | null
-          created_at?: string | null
-          descricao?: string | null
+          created_at?: string
           horario?: string | null
           id?: string
           nome?: string
           periodo?: string | null
           professor?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }

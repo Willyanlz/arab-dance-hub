@@ -1,11 +1,42 @@
 import * as React from 'react';
 
+export interface TicketTemplateConfig {
+  titulo_email: string;
+  subtitulo_email: string;
+  mensagem_confirmacao: string;
+  titulo_detalhes: string;
+  titulo_voucher: string;
+  instrucao_voucher: string;
+  rodape_evento: string;
+  rodape_local: string;
+  cor_primaria: string;
+  cor_fundo: string;
+  cor_texto: string;
+  cor_subtexto: string;
+}
+
+export const defaultTicketTemplate: TicketTemplateConfig = {
+  titulo_email: 'F.A.D.D.A',
+  subtitulo_email: 'Festival Araraquarense de Danças Árabes',
+  mensagem_confirmacao: 'Seu pagamento foi confirmado com sucesso. Prepare-se para uma experiência inesquecível no mundo da dança árabe!',
+  titulo_detalhes: 'Detalhes do Pedido',
+  titulo_voucher: 'Seu Voucher de Acesso',
+  instrucao_voucher: 'Apresente este código na recepção do evento',
+  rodape_evento: '9º F.A.D.D.A - 2026',
+  rodape_local: 'Araraquara, São Paulo',
+  cor_primaria: '#d4af37',
+  cor_fundo: '#000000',
+  cor_texto: '#ffffff',
+  cor_subtexto: '#888888',
+};
+
 interface TicketEmailProps {
   nome: string;
   ingresso: string;
   quantidade: number;
   valorTotal: number;
   qrCodeUrl: string;
+  config?: TicketTemplateConfig;
 }
 
 export const TicketEmail = ({
@@ -14,139 +45,58 @@ export const TicketEmail = ({
   quantidade,
   valorTotal,
   qrCodeUrl,
+  config = defaultTicketTemplate,
 }: TicketEmailProps) => {
-  const containerStyle = {
-    fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif',
-    backgroundColor: '#000000',
-    color: '#ffffff',
-    padding: '40px 20px',
-    maxWidth: '600px',
-    margin: '0 auto',
-    borderRadius: '16px',
-    border: '1px solid #d4af37',
-  };
-
-  const headerStyle = {
-    textAlign: 'center' as const,
-    marginBottom: '40px',
-  };
-
-  const titleStyle = {
-    color: '#d4af37',
-    fontSize: '32px',
-    margin: '0',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '4px',
-    fontWeight: 'bold',
-  };
-
-  const subtitleStyle = {
-    color: '#888888',
-    margin: '8px 0',
-    fontSize: '14px',
-    letterSpacing: '1px',
-  };
-
-  const bodyStyle = {
-    fontSize: '16px',
-    lineHeight: '1.6',
-    color: '#dddddd',
-  };
-
-  const highlightStyle = {
-    color: '#d4af37',
-    fontWeight: 'bold',
-  };
-
-  const cardStyle = {
-    background: 'linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%)',
-    border: '1px solid #333333',
-    padding: '30px',
-    margin: '30px 0',
-    borderRadius: '12px',
-  };
-
-  const tableStyle = {
-    width: '100%',
-    borderCollapse: 'collapse' as const,
-    marginTop: '10px',
-  };
-
-  const tdLabelStyle = {
-    padding: '8px 0',
-    color: '#888888',
-    fontSize: '14px',
-  };
-
-  const tdValueStyle = {
-    padding: '8px 0',
-    textAlign: 'right' as const,
-    fontWeight: 'bold',
-    color: '#ffffff',
-  };
-
-  const qrSectionStyle = {
-    textAlign: 'center' as const,
-    margin: '40px 0',
-    backgroundColor: '#ffffff',
-    padding: '30px',
-    borderRadius: '16px',
-    boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-  };
-
-  const qrTitleStyle = {
-    color: '#000000',
-    marginBottom: '10px',
-    fontWeight: 'bold',
-    fontSize: '14px',
-    textTransform: 'uppercase' as const,
-  };
-
-  const footerStyle = {
-    textAlign: 'center' as const,
-    color: '#666666',
-    fontSize: '12px',
-    marginTop: '40px',
-    borderTop: '1px solid #222222',
-    paddingTop: '20px',
-  };
+  const c = config;
 
   return (
-    <div style={containerStyle}>
-      <div style={headerStyle}>
-        <h1 style={titleStyle}>F.A.D.D.A</h1>
-        <p style={subtitleStyle}>9º Festival Araraquarense de Danças Árabes</p>
-      </div>
-
-      <div style={bodyStyle}>
-        <p>Olá, <span style={highlightStyle}>{nome}</span>!</p>
-        <p>
-          Sua participação no maior evento de dança árabe da região está confirmada. 
-          Estamos ansiosos para vê-lo brilhar no palco!
+    <div style={{
+      fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif',
+      backgroundColor: c.cor_fundo,
+      color: c.cor_texto,
+      padding: '40px 20px',
+      maxWidth: '600px',
+      margin: '0 auto',
+      borderRadius: '16px',
+      border: `1px solid ${c.cor_primaria}`,
+    }}>
+      <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+        <h1 style={{ color: c.cor_primaria, fontSize: '32px', margin: '0', textTransform: 'uppercase', letterSpacing: '4px', fontWeight: 'bold' }}>
+          {c.titulo_email}
+        </h1>
+        <p style={{ color: c.cor_subtexto, margin: '8px 0', fontSize: '14px', letterSpacing: '1px' }}>
+          {c.subtitulo_email}
         </p>
       </div>
 
-      <div style={cardStyle}>
-        <h2 style={{ ...highlightStyle, fontSize: '18px', margin: '0 0 15px 0', borderBottom: '1px solid #222', paddingBottom: '10px' }}>
-          Detalhes da Inscrição
+      <div style={{ fontSize: '16px', lineHeight: '1.6', color: '#dddddd' }}>
+        <p>Olá, <span style={{ color: c.cor_primaria, fontWeight: 'bold' }}>{nome}</span>!</p>
+        <p>{c.mensagem_confirmacao}</p>
+      </div>
+
+      <div style={{
+        background: 'linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%)',
+        border: '1px solid #333333',
+        padding: '30px',
+        margin: '30px 0',
+        borderRadius: '12px',
+      }}>
+        <h2 style={{ color: c.cor_primaria, fontSize: '18px', margin: '0 0 15px 0', borderBottom: '1px solid #222', paddingBottom: '10px', fontWeight: 'bold' }}>
+          {c.titulo_detalhes}
         </h2>
-        <table style={tableStyle}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
           <tbody>
             <tr>
-              <td style={tdLabelStyle}>Participante:</td>
-              <td style={tdValueStyle}>{nome}</td>
+              <td style={{ padding: '8px 0', color: c.cor_subtexto, fontSize: '14px' }}>Ingresso:</td>
+              <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: 'bold', color: c.cor_texto }}>{ingresso}</td>
             </tr>
             <tr>
-              <td style={tdLabelStyle}>Ingresso:</td>
-              <td style={tdValueStyle}>{ingresso}</td>
+              <td style={{ padding: '8px 0', color: c.cor_subtexto, fontSize: '14px' }}>Quantidade:</td>
+              <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: 'bold', color: c.cor_texto }}>{quantidade}</td>
             </tr>
             <tr>
-              <td style={tdLabelStyle}>Quantidade:</td>
-              <td style={tdValueStyle}>{quantidade}</td>
-            </tr>
-            <tr>
-              <td style={{ ...tdLabelStyle, borderTop: '1px solid #222', paddingTop: '15px' }}>Total Pago:</td>
-              <td style={{ ...tdValueStyle, borderTop: '1px solid #222', paddingTop: '15px', color: '#d4af37', fontSize: '20px' }}>
+              <td style={{ padding: '8px 0', color: c.cor_subtexto, fontSize: '14px', borderTop: '1px solid #222', paddingTop: '15px' }}>Total Pago:</td>
+              <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: 'bold', color: c.cor_primaria, fontSize: '20px', borderTop: '1px solid #222', paddingTop: '15px' }}>
                 R$ {valorTotal.toFixed(2)}
               </td>
             </tr>
@@ -154,23 +104,18 @@ export const TicketEmail = ({
         </table>
       </div>
 
-      <div style={qrSectionStyle}>
-        <p style={qrTitleStyle}>Seu Voucher Digital</p>
-        <img 
-          src={qrCodeUrl} 
-          alt="QR Code Ticket" 
-          width="200" 
-          height="200" 
-          style={{ display: 'block', margin: '0 auto' }} 
-        />
+      <div style={{ textAlign: 'center', margin: '40px 0', backgroundColor: '#ffffff', padding: '30px', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+        <p style={{ color: '#000000', marginBottom: '10px', fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase' }}>
+          {c.titulo_voucher}
+        </p>
+        <img src={qrCodeUrl} alt="QR Code Ticket" width="200" height="200" style={{ display: 'block', margin: '0 auto' }} />
         <p style={{ color: '#888', fontSize: '11px', marginTop: '15px', marginBottom: 0 }}>
-          Apresente este código no credenciamento do evento.<br/>
-          Pode ser lido diretamente do seu celular.
+          {c.instrucao_voucher}
         </p>
       </div>
 
-      <div style={footerStyle}>
-        <p><strong>9º F.A.D.D.A - 2026</strong><br />Araraquara, São Paulo</p>
+      <div style={{ textAlign: 'center', color: '#666666', fontSize: '12px', marginTop: '40px', borderTop: '1px solid #222222', paddingTop: '20px' }}>
+        <p><strong>{c.rodape_evento}</strong><br />{c.rodape_local}</p>
         <p style={{ marginTop: '10px' }}>Este é um e-mail automático. Por favor, não responda.</p>
       </div>
     </div>

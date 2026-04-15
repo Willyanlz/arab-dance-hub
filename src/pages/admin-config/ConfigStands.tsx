@@ -17,7 +17,7 @@ export const ConfigStands = () => {
   const loadStands = async () => {
     setLoading(true);
     const { data } = await supabase.from('site_config').select('*').eq('chave', 'stands_feirinha').single();
-    if (data && data.valor) setStands(data.valor);
+    if (data && data.valor) setStands(data.valor as any[]);
     setLoading(false);
   };
 
