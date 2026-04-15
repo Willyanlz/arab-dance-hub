@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      form_config: {
+        Row: {
+          created_at: string
+          fields: Json
+          id: string
+          tipo_inscricao: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fields?: Json
+          id?: string
+          tipo_inscricao: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fields?: Json
+          id?: string
+          tipo_inscricao?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ingressos_vendidos: {
         Row: {
           cpf: string
