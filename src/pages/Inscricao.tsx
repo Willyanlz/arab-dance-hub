@@ -97,7 +97,7 @@ const Inscricao = () => {
   const [termosTexto, setTermosTexto] = useState<Record<string, string>>({});
   const [inscricoesAbertas, setInscricoesAbertas] = useState<Record<string, boolean>>({});
   const [faixaEtaria, setFaixaEtaria] = useState('');
-  
+
   // Dynamic Forms
   const [formConfigs, setFormConfigs] = useState<any[]>([]);
   const [dadosAdicionais, setDadosAdicionais] = useState<Record<string, any>>({});
@@ -344,7 +344,7 @@ const Inscricao = () => {
   const evaluateCondition = (condition: any) => {
     if (!condition || !condition.field) return true;
     const val = dadosAdicionais[condition.field] || '';
-    
+
     switch (condition.operator) {
       case '==': return val == condition.value;
       case '!=': return val != condition.value;
@@ -370,8 +370,8 @@ const Inscricao = () => {
 
     let fields = typeof config.fields === 'string' ? JSON.parse(config.fields) : config.fields;
     const visibleFields = getVisibleFields(fields);
-    
-    const dynamicValid = visibleFields.every((f: any) => 
+
+    const dynamicValid = visibleFields.every((f: any) =>
       !f.required || (!!dadosAdicionais[f.name] && dadosAdicionais[f.name].toString().trim().length > 0)
     );
 
@@ -391,8 +391,8 @@ const Inscricao = () => {
       return (
         <div key={f.id} className="space-y-1">
           <Label className="text-foreground font-sans">{f.label} {f.required ? '*' : ''}</Label>
-          <Select 
-            value={tipoInscricao === 'mostra' ? periodoMostra : periodo} 
+          <Select
+            value={tipoInscricao === 'mostra' ? periodoMostra : periodo}
             onValueChange={v => tipoInscricao === 'mostra' ? setPeriodoMostra(v) : setPeriodo(v)}
           >
             <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
@@ -407,12 +407,12 @@ const Inscricao = () => {
     if (f.name === 'modalidade') {
       const currentModalidade = tipoInscricao === 'mostra' ? modalidadeMostra : modalidade;
       const currentModalidades = tipoInscricao === 'mostra' ? modalidadesMostra : modalidadesComp;
-      
+
       return (
         <div key={f.id} className="space-y-1">
           <Label className="text-foreground font-sans">{f.label} *</Label>
-          <Select 
-            value={currentModalidade} 
+          <Select
+            value={currentModalidade}
             onValueChange={v => {
               if (tipoInscricao === 'mostra') setModalidadeMostra(v);
               else setModalidade(v);
@@ -455,86 +455,86 @@ const Inscricao = () => {
       return (
         <div key={f.id} className="space-y-1">
           <Label className="text-foreground font-sans">{f.label} *</Label>
-          <Input 
-            value={val} 
-            onChange={e => tipoInscricao === 'mostra' ? setNomeCoreografiaMostra(e.target.value) : setNomeCoreografia(e.target.value)} 
-            className="bg-background border-border text-foreground" 
+          <Input
+            value={val}
+            onChange={e => tipoInscricao === 'mostra' ? setNomeCoreografiaMostra(e.target.value) : setNomeCoreografia(e.target.value)}
+            className="bg-background border-border text-foreground"
           />
         </div>
       );
     }
 
     if (f.name === 'tipo_musica') {
-        const val = tipoInscricao === 'mostra' ? tipoMusicaMostra : tipoMusica;
-        return (
-          <div key={f.id} className="space-y-3 p-3 bg-muted/20 rounded-lg">
-            <Label className="text-foreground font-sans text-xs font-bold uppercase">{f.label} *</Label>
-            <div className="flex gap-6">
-              <label className="flex items-center gap-2 cursor-pointer font-sans text-sm">
-                <input type="radio" checked={val === 'solta'} onChange={() => tipoInscricao === 'mostra' ? setTipoMusicaMostra('solta') : setTipoMusica('solta')} className="accent-primary" /> Música solta
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer font-sans text-sm">
-                <input type="radio" checked={val === 'posicionada'} onChange={() => tipoInscricao === 'mostra' ? setTipoMusicaMostra('posicionada') : setTipoMusica('posicionada')} className="accent-primary" /> Música posicionada
-              </label>
-            </div>
+      const val = tipoInscricao === 'mostra' ? tipoMusicaMostra : tipoMusica;
+      return (
+        <div key={f.id} className="space-y-3 p-3 bg-muted/20 rounded-lg">
+          <Label className="text-foreground font-sans text-xs font-bold uppercase">{f.label} *</Label>
+          <div className="flex gap-6">
+            <label className="flex items-center gap-2 cursor-pointer font-sans text-sm">
+              <input type="radio" checked={val === 'solta'} onChange={() => tipoInscricao === 'mostra' ? setTipoMusicaMostra('solta') : setTipoMusica('solta')} className="accent-primary" /> Música solta
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer font-sans text-sm">
+              <input type="radio" checked={val === 'posicionada'} onChange={() => tipoInscricao === 'mostra' ? setTipoMusicaMostra('posicionada') : setTipoMusica('posicionada')} className="accent-primary" /> Música posicionada
+            </label>
           </div>
-        );
+        </div>
+      );
     }
 
     if (f.name === 'tipo_participacao') {
-       return (
-         <div key={f.id} className="space-y-1">
-           <Label className="text-foreground font-sans">{f.label} *</Label>
-           <Select value={tipoParticipacao} onValueChange={setTipoParticipacao}>
-             <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-             <SelectContent>
-               {TIPO_PARTICIPACAO_MOSTRA.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-             </SelectContent>
-           </Select>
-         </div>
-       );
+      return (
+        <div key={f.id} className="space-y-1">
+          <Label className="text-foreground font-sans">{f.label} *</Label>
+          <Select value={tipoParticipacao} onValueChange={setTipoParticipacao}>
+            <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {TIPO_PARTICIPACAO_MOSTRA.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      );
     }
 
     if (f.name === 'tipo_compra') {
-       return (
-         <div key={f.id} className="space-y-1">
-           <Label className="text-foreground font-sans">{f.label} *</Label>
-           <Select value={tipoCompraWorkshop} onValueChange={v => setTipoCompraWorkshop(v as TipoCompraWorkshop)}>
-             <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-             <SelectContent>
-               {WORKSHOP_TIPO_COMPRA.map(t => (
-                 <SelectItem key={t.value} value={t.value}>
-                   {t.label} {loteAtualWorkshop ? `— R$ ${(loteAtualWorkshop as any)[`preco_${t.value}`]?.toFixed(2) || ''}` : ''}
-                 </SelectItem>
-               ))}
-             </SelectContent>
-           </Select>
-         </div>
-       );
+      return (
+        <div key={f.id} className="space-y-1">
+          <Label className="text-foreground font-sans">{f.label} *</Label>
+          <Select value={tipoCompraWorkshop} onValueChange={v => setTipoCompraWorkshop(v as TipoCompraWorkshop)}>
+            <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {WORKSHOP_TIPO_COMPRA.map(t => (
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label} {loteAtualWorkshop ? `— R$ ${(loteAtualWorkshop as any)[`preco_${t.value}`]?.toFixed(2) || ''}` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      );
     }
 
     if (f.name === 'workshops') {
-       return (
-         <div key={f.id} className="space-y-2">
-           <Label className="text-foreground font-sans">{f.label} *</Label>
-           <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-             {workshopsDisponiveis.map(w => (
-               <button
-                 key={w.id} type="button" onClick={() => toggleWorkshop(w.id)}
-                 className={`w-full text-left p-3 rounded-lg border transition-all ${workshopsSelecionados.includes(w.id) ? 'border-gold bg-primary/10' : 'border-border bg-background hover:border-gold/40'}`}
-               >
-                 <div className="flex items-center justify-between">
-                   <div>
-                     <p className="font-medium text-foreground font-sans text-xs">{w.nome}</p>
-                     <p className="text-[10px] text-muted-foreground font-sans">{w.professor} · {w.horario}</p>
-                   </div>
-                   {workshopsSelecionados.includes(w.id) && <div className="w-4 h-4 rounded-full bg-gradient-gold flex items-center justify-center"><span className="text-white text-[10px]">✓</span></div>}
-                 </div>
-               </button>
-             ))}
-           </div>
-         </div>
-       );
+      return (
+        <div key={f.id} className="space-y-2">
+          <Label className="text-foreground font-sans">{f.label} *</Label>
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            {workshopsDisponiveis.map(w => (
+              <button
+                key={w.id} type="button" onClick={() => toggleWorkshop(w.id)}
+                className={`w-full text-left p-3 rounded-lg border transition-all ${workshopsSelecionados.includes(w.id) ? 'border-gold bg-primary/10' : 'border-border bg-background hover:border-gold/40'}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-foreground font-sans text-xs">{w.nome}</p>
+                    <p className="text-[10px] text-muted-foreground font-sans">{w.professor} · {w.horario}</p>
+                  </div>
+                  {workshopsSelecionados.includes(w.id) && <div className="w-4 h-4 rounded-full bg-gradient-gold flex items-center justify-center"><span className="text-white text-[10px]">✓</span></div>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      );
     }
 
     // Default dynamic field rendering
@@ -542,11 +542,11 @@ const Inscricao = () => {
       <div key={f.id} className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-300">
         {f.type !== 'checkbox' && <Label className="text-foreground font-sans">{f.label} {f.required ? '*' : ''}</Label>}
         {f.type === 'text' || f.type === 'email' || f.type === 'number' || f.type === 'date' ? (
-          <Input 
+          <Input
             type={f.type} required={f.required} placeholder={f.placeholder || ''}
-            value={dadosAdicionais[f.name] || ''} 
-            onChange={e => setDadosAdicionais({ ...dadosAdicionais, [f.name]: e.target.value })} 
-            className="bg-background border-border text-foreground" 
+            value={dadosAdicionais[f.name] || ''}
+            onChange={e => setDadosAdicionais({ ...dadosAdicionais, [f.name]: e.target.value })}
+            className="bg-background border-border text-foreground"
           />
         ) : f.type === 'select' ? (
           <Select value={dadosAdicionais[f.name] || ''} onValueChange={v => setDadosAdicionais({ ...dadosAdicionais, [f.name]: v })}>
@@ -582,24 +582,24 @@ const Inscricao = () => {
     return (
       <Card className="bg-card border-border shadow-lg">
         <CardHeader>
-           <CardTitle className="font-serif text-foreground text-xl flex items-center gap-2">
-             {tipoInscricao === 'competicao' && <Trophy className="w-5 h-5 text-gold-light" />}
-             {tipoInscricao === 'mostra' && <Star className="w-5 h-5 text-burgundy" />}
-             {tipoInscricao === 'workshop' && <BookOpen className="w-5 h-5 text-primary" />}
-             2. Detalhes da Participação
-           </CardTitle>
+          <CardTitle className="font-serif text-foreground text-xl flex items-center gap-2">
+            {tipoInscricao === 'competicao' && <Trophy className="w-5 h-5 text-gold-light" />}
+            {tipoInscricao === 'mostra' && <Star className="w-5 h-5 text-burgundy" />}
+            {tipoInscricao === 'workshop' && <BookOpen className="w-5 h-5 text-primary" />}
+            2. Detalhes da Participação
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-           {visibleFields.map(f => renderField(f))}
-           
-           {tipoInscricao === 'mostra' && (
-             <div className="p-4 bg-primary/5 border border-gold/20 rounded-lg text-sm font-sans text-foreground flex items-start gap-3">
-               <span className="text-lg">🎟️</span>
-               <p><strong>Incluso na inscrição:</strong> Ingresso para o dia todo (9h até 18:30). Para o show de gala, adquira via Sympla.</p>
-             </div>
-           )}
+          {visibleFields.map(f => renderField(f))}
 
-           <div className="flex gap-3 pt-4 border-t border-border mt-4">
+          {tipoInscricao === 'mostra' && (
+            <div className="p-4 bg-primary/5 border border-gold/20 rounded-lg text-sm font-sans text-foreground flex items-start gap-3">
+              <span className="text-lg">🎟️</span>
+              <p><strong>Incluso na inscrição:</strong> Ingresso para o dia todo (9h até 18:30). Para o show de gala, adquira via Sympla.</p>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4 border-t border-border mt-4">
             <Button variant="outline" onClick={() => setStep(1)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
             <Button onClick={() => { if (!canProceedStep2()) { toast({ title: 'Preencha os campos obrigatórios', variant: 'destructive' }); return; } setStep(3); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans shadow-md">Próximo</Button>
           </div>
