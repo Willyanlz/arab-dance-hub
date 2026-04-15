@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Download, Check, Search, Eye, X, Edit2, Users, Trophy, Star, BookOpen, UserPlus, Ticket, DollarSign, QrCode } from 'lucide-react';
+import { ArrowLeft, Download, Check, Search, Eye, X, Edit2, Users, Trophy, Star, BookOpen, UserPlus, Ticket, DollarSign, QrCode, Menu } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, string> = {
   pendente: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -55,6 +55,7 @@ const Admin = () => {
   const [editModalidade, setEditModalidade] = useState('');
   const [editObs, setEditObs] = useState('');
   const [saving, setSaving] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin)) navigate('/login');
@@ -63,6 +64,21 @@ const Admin = () => {
   useEffect(() => {
     if (!user || !isAdmin) return;
     loadInscricoes();
+  }, [user, isAdmin]);
+
+  useEffect(() => {
+    if (!user || !isAdmin) return;
+
+    const channel = supabase
+      .channel('admin-inscricoes-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inscricoes' }, () => {
+        loadInscricoes();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user, isAdmin]);
 
   const loadInscricoes = async () => {
@@ -110,20 +126,32 @@ const Admin = () => {
     }));
 
     setInscricoes(data);
+    if (selected?.id) {
+      const refreshed = data.find((item: any) => item.id === selected.id);
+      if (refreshed) {
+        setSelected(refreshed);
+      }
+    }
     setLoading(false);
   };
 
   const confirmarPagamento = async (id: string) => {
     await supabase.from('inscricoes').update({ status: 'confirmado' }).eq('id', id);
     await supabase.from('pagamentos').update({ status: 'confirmado' }).eq('inscricao_id', id);
+    const alvo = inscricoes.find((item) => item.id === id);
+    if (alvo?.profiles?.email) {
+      supabase.functions.invoke('send-inscricao-confirmation', {
+        body: {
+          email: alvo.profiles.email,
+          nome: alvo.profiles.nome || 'Participante',
+          tipo_inscricao: alvo.tipo_inscricao,
+          modalidade: alvo.modalidade,
+          nome_coreografia: alvo.nome_coreografia,
+          valor_final: alvo.valor_final,
+        },
+      }).catch(console.error);
+    }
     toast({ title: '✅ Pagamento confirmado!' });
-    loadInscricoes();
-  };
-
-  const marcarPago = async (id: string) => {
-    await supabase.from('inscricoes').update({ status: 'pago' }).eq('id', id);
-    await supabase.from('pagamentos').update({ status: 'pago' }).eq('inscricao_id', id);
-    toast({ title: 'Marcado como pago!' });
     loadInscricoes();
   };
 
@@ -250,7 +278,7 @@ const Admin = () => {
             <Link to="/" className="text-xl font-serif font-bold text-gradient-gold">F.A.D.D.A</Link>
             <Badge className="bg-accent text-accent-foreground font-sans">Admin</Badge>
           </div>
-          <div className="flex gap-2">
+          <div className="hidden sm:flex gap-2">
             <Button asChild variant="outline" size="sm" className="border-border text-foreground font-sans">
               <Link to="/admin/config">⚙️ Configurações</Link>
             </Button>
@@ -262,8 +290,29 @@ const Admin = () => {
             </Button>
             <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground font-sans">Sair</Button>
           </div>
+          <div className="sm:hidden">
+            <Button variant="outline" size="icon" onClick={() => setMobileMenuOpen((prev) => !prev)} aria-label="Abrir menu do admin">
+              <Menu className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </header>
+      {mobileMenuOpen && (
+        <div className="sm:hidden border-b border-border bg-card px-4 py-3">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 gap-2">
+            <Button asChild variant="outline" size="sm" className="justify-start border-border text-foreground font-sans">
+              <Link to="/admin/config" onClick={() => setMobileMenuOpen(false)}>⚙️ Configurações</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="justify-start border-border text-foreground font-sans">
+              <Link to="/admin/ingressos" onClick={() => setMobileMenuOpen(false)}>🎫 Ingressos</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="justify-start border-border text-foreground font-sans">
+              <Link to="/admin/scanner" onClick={() => setMobileMenuOpen(false)}><QrCode className="w-4 h-4 mr-1" /> Scanner</Link>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={signOut} className="justify-start text-muted-foreground font-sans">Sair</Button>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto py-8 px-4">
         {/* Title + actions */}
@@ -447,12 +496,9 @@ const Admin = () => {
                           <Button size="sm" variant="ghost" onClick={() => openDetail(i)} className="text-muted-foreground hover:text-foreground">
                             <Eye className="w-4 h-4" />
                           </Button>
-                          {i.status === 'pendente' && (
-                            <Button size="sm" variant="outline" onClick={() => marcarPago(i.id)} className="text-xs border-border text-foreground font-sans">Pago</Button>
-                          )}
                           {(i.status === 'pendente' || i.status === 'pago') && (
                             <Button size="sm" onClick={() => confirmarPagamento(i.id)} className="text-xs bg-gradient-gold text-primary-foreground font-sans">
-                              <Check className="w-3 h-3 mr-1" /> OK
+                              <Check className="w-3 h-3 mr-1" /> Confirmar + E-mail
                             </Button>
                           )}
                         </div>
@@ -498,7 +544,7 @@ const Admin = () => {
 
               <div className="bg-muted rounded-lg p-4 space-y-2">
                 <p className="font-semibold text-foreground mb-2">Responsável pela Inscrição</p>
-                <div className="grid grid-cols-2 gap-2 text-foreground">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-foreground">
                   <div><span className="text-muted-foreground">Nome: </span>{selected.profiles?.nome || '—'}</div>
                   <div><span className="text-muted-foreground">Email: </span>{selected.profiles?.email || '—'}</div>
                   <div><span className="text-muted-foreground">CPF: </span>{selected.profiles?.cpf || '—'}</div>
@@ -510,7 +556,7 @@ const Admin = () => {
 
               <div className="bg-muted rounded-lg p-4 space-y-2">
                 <p className="font-semibold text-foreground mb-2">Dados da Apresentação</p>
-                <div className="grid grid-cols-2 gap-2 text-foreground">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-foreground">
                   {selected.modalidade && <div className="col-span-2"><span className="text-muted-foreground">Modalidade: </span>{selected.modalidade}</div>}
                   {selected.nome_coreografia && <div className="col-span-2"><span className="text-muted-foreground">Coreografia: </span>{selected.nome_coreografia}</div>}
                   {selected.nome_escola && <div><span className="text-muted-foreground">Escola: </span>{selected.nome_escola}</div>}
@@ -611,7 +657,7 @@ const Admin = () => {
                   )}
                   {selected.status === 'pendente' && (
                     <Button onClick={() => { confirmarPagamento(selected.id); setDetailOpen(false); }} className="bg-gradient-gold text-primary-foreground font-sans">
-                      <Check className="w-4 h-4 mr-1" /> Confirmar Pagamento
+                      <Check className="w-4 h-4 mr-1" /> Confirmar + enviar e-mail
                     </Button>
                   )}
                 </div>

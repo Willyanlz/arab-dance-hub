@@ -3,13 +3,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { Trash2, Shield, Search } from 'lucide-react';
-import type { Database } from '@/integrations/supabase/types';
+
+interface AdminRoleItem {
+  id: string;
+  user_id: string;
+  role: string;
+  profiles?: {
+    nome?: string;
+    email?: string;
+  };
+}
 
 export function AdminRoles() {
-  const [admins, setAdmins] = useState<any[]>([]);
+  const [admins, setAdmins] = useState<AdminRoleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchEmail, setSearchEmail] = useState('');
   const [searching, setSearching] = useState(false);
@@ -20,10 +28,9 @@ export function AdminRoles() {
 
   const loadAdmins = async () => {
     setLoading(true);
-    // Get all user roles where role = 'admin'
     const { data: rolesData, error: rolesErr } = await supabase
       .from('user_roles')
-      .select('*, profiles:user_id(nome, email)')
+      .select('id, user_id, role')
       .eq('role', 'admin');
 
     if (rolesErr) {
@@ -32,7 +39,31 @@ export function AdminRoles() {
       return;
     }
 
-    setAdmins(rolesData || []);
+    const userIds = (rolesData || []).map((role) => role.user_id);
+    if (userIds.length === 0) {
+      setAdmins([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data: profilesData, error: profilesErr } = await supabase
+      .from('profiles')
+      .select('user_id, nome, email')
+      .in('user_id', userIds);
+
+    if (profilesErr) {
+      toast({ title: 'Erro ao carregar perfis', description: profilesErr.message, variant: 'destructive' });
+      setLoading(false);
+      return;
+    }
+
+    const profileMap = new Map((profilesData || []).map((profile) => [profile.user_id, profile]));
+    const merged = (rolesData || []).map((role) => ({
+      ...role,
+      profiles: profileMap.get(role.user_id),
+    }));
+
+    setAdmins(merged);
     setLoading(false);
   };
 

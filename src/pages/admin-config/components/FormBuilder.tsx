@@ -27,6 +27,8 @@ import {
   Check,
 } from 'lucide-react';
 import { ModalidadeManager } from './ModalidadeManager';
+import { SystemOptionsManager } from './SystemOptionsManager';
+import { SYSTEM_OPTION_KEYS, type SystemOptionKey } from '@/lib/systemOptions';
 
 export type FieldType =
   | 'text'
@@ -491,6 +493,20 @@ export const FormBuilder = ({ tipo, title }: FormBuilderProps) => {
         existingNames={existingNames}
         onAdd={addSystemField}
       />
+
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-base font-serif font-bold text-foreground">Opções globais do sistema</h3>
+          <p className="text-xs text-muted-foreground font-sans">
+            Mobile-first: essas opções alimentam os campos reservados (categoria, período, tipo de música etc.).
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {SYSTEM_OPTION_KEYS.map((optionKey) => (
+            <SystemOptionsManager key={optionKey} field={optionKey as SystemOptionKey} />
+          ))}
+        </div>
+      </div>
 
       {/* ── Lista de campos configurados ── */}
       <div className="space-y-4">

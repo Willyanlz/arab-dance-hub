@@ -18,8 +18,10 @@ import {
   type LoteCompetição, type LoteMostra, type LoteWorkshop,
   type CategoriaType, type TipoCompraWorkshop
 } from '@/lib/pricing';
-import { ArrowLeft, Plus, Trash2, Trophy, Star, Music, BookOpen, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Trophy, Star, BookOpen, ChevronRight } from 'lucide-react';
 import { FormFieldConfig } from './admin-config/components/FormBuilder';
+import { getSystemOptions, type SystemOptionItem } from '@/lib/systemOptions';
+import { initializePaymentGateway } from '@/lib/paymentGateway';
 
 interface Participante {
   nome: string;
@@ -36,18 +38,6 @@ interface WorkshopItem {
   horario: string;
   ativo: boolean;
 }
-
-const CATEGORIAS = [
-  { value: 'solo', label: 'Solo' },
-  { value: 'dupla_trio', label: 'Dupla/Trio' },
-  { value: 'grupo', label: 'Grupo' },
-];
-
-const PERIODOS = [
-  { value: 'manha', label: 'Manhã' },
-  { value: 'tarde', label: 'Tarde' },
-  { value: 'nao_competir', label: 'Sem preferência de período' },
-];
 
 const TIPO_INSCRICAO_OPTIONS = [
   {
@@ -102,6 +92,7 @@ const Inscricao = () => {
   // Dynamic Forms
   const [formConfigs, setFormConfigs] = useState<any[]>([]);
   const [dadosAdicionais, setDadosAdicionais] = useState<Record<string, any>>({});
+  const [systemOptions, setSystemOptions] = useState<SystemOptionItem[]>([]);
 
   // ── Profile fields ────────────────────────────────────────────────────────
   const [cpf, setCpf] = useState('');
@@ -181,6 +172,7 @@ const Inscricao = () => {
         { data: profileData },
         { data: modalidadesData },
         { data: formConfigData },
+        { data: systemOptionsData },
       ] = await Promise.all([
         supabase.from('lotes').select('*').order('numero'),
         (supabase.from('lotes_mostra') as any).select('*').order('numero'),
@@ -191,9 +183,11 @@ const Inscricao = () => {
         supabase.from('profiles').select('cpf,telefone,is_aluna_jalilete,participante_anterior').eq('user_id', user.id).single(),
         (supabase.from('modalidades_config') as any).select('*').eq('ativo', true).order('ordem'),
         supabase.from('form_config').select('*'),
+        (supabase.from('system_options' as any) as any).select('*').order('ordem'),
       ]);
 
       if (formConfigData) setFormConfigs(formConfigData);
+      if (systemOptionsData) setSystemOptions(systemOptionsData as SystemOptionItem[]);
 
       if (lotesData) { setLotes(lotesData as any); setLoteAtual(getLoteAtual(lotesData as any)); }
       if (lotesMostraData) { setLotesMostra(lotesMostraData as any); setLoteAtualMostra(getLoteAtual(lotesMostraData as any)); }
@@ -327,12 +321,49 @@ const Inscricao = () => {
         );
       }
 
+      const isAutomaticPayment = metodoPagamento === 'cartao';
+
       // Pagamento
       if (insc) {
-        await supabase.from('pagamentos').insert({ inscricao_id: insc.id, metodo: metodoPagamento, valor: valorFinal });
+        const paymentGateway = await initializePaymentGateway({
+          metodo: metodoPagamento,
+          valor: valorFinal,
+          descricao: `Inscrição ${tipoInscricao}`,
+          referenciaId: insc.id,
+        });
+
+        await supabase.from('pagamentos').insert({
+          inscricao_id: insc.id,
+          metodo: metodoPagamento,
+          valor: valorFinal,
+          status: isAutomaticPayment ? 'confirmado' : 'pendente',
+        } as any);
+
+        if (isAutomaticPayment) {
+          await supabase.from('inscricoes').update({ status: 'confirmado' }).eq('id', insc.id);
+          supabase.functions.invoke('send-inscricao-confirmation', {
+            body: {
+              email: user.email,
+              nome: user.user_metadata?.nome || user.email || 'Participante',
+              tipo_inscricao: tipoInscricao,
+              modalidade: inscData.modalidade,
+              nome_coreografia: inscData.nome_coreografia,
+              valor_final: valorFinal,
+            },
+          }).catch(console.error);
+        }
+
+        if (paymentGateway.instructions) {
+          toast({ title: 'Pagamento inicializado', description: paymentGateway.instructions });
+        }
       }
 
-      toast({ title: '✅ Inscrição realizada!', description: 'Aguarde a confirmação do pagamento.' });
+      toast({
+        title: '✅ Inscrição realizada!',
+        description: isAutomaticPayment
+          ? 'Pagamento confirmado automaticamente e e-mail enviado.'
+          : 'Aguarde a confirmação manual do pagamento.',
+      });
       navigate('/dashboard');
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
@@ -426,6 +457,12 @@ const Inscricao = () => {
     return termosAceitos;
   };
 
+  const CATEGORIAS = getSystemOptions('categoria', systemOptions);
+  const PERIODOS = getSystemOptions('periodo', systemOptions);
+  const TIPO_MUSICA = getSystemOptions('tipo_musica', systemOptions);
+  const TIPO_PARTICIPACAO = getSystemOptions('tipo_participacao', systemOptions);
+  const TIPO_COMPRA = getSystemOptions('tipo_compra', systemOptions);
+
   const renderField = (f: any) => {
     // Special logic for reserved system fields
     if (f.name === 'periodo') {
@@ -511,12 +548,17 @@ const Inscricao = () => {
         <div key={f.id} className="space-y-3 p-3 bg-muted/20 rounded-lg">
           <Label className="text-foreground font-sans text-xs font-bold uppercase">{f.label} *</Label>
           <div className="flex gap-6">
-            <label className="flex items-center gap-2 cursor-pointer font-sans text-sm">
-              <input type="radio" checked={val === 'solta'} onChange={() => tipoInscricao === 'mostra' ? setTipoMusicaMostra('solta') : setTipoMusica('solta')} className="accent-primary" /> Música solta
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer font-sans text-sm">
-              <input type="radio" checked={val === 'posicionada'} onChange={() => tipoInscricao === 'mostra' ? setTipoMusicaMostra('posicionada') : setTipoMusica('posicionada')} className="accent-primary" /> Música posicionada
-            </label>
+            {TIPO_MUSICA.map((op) => (
+              <label key={op.value} className="flex items-center gap-2 cursor-pointer font-sans text-sm">
+                <input
+                  type="radio"
+                  checked={val === op.value}
+                  onChange={() => tipoInscricao === 'mostra' ? setTipoMusicaMostra(op.value as any) : setTipoMusica(op.value as any)}
+                  className="accent-primary"
+                />
+                {op.label}
+              </label>
+            ))}
           </div>
         </div>
       );
@@ -529,7 +571,7 @@ const Inscricao = () => {
           <Select value={tipoParticipacao} onValueChange={setTipoParticipacao}>
             <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {TIPO_PARTICIPACAO_MOSTRA.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+              {(TIPO_PARTICIPACAO.length > 0 ? TIPO_PARTICIPACAO : TIPO_PARTICIPACAO_MOSTRA).map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -543,7 +585,7 @@ const Inscricao = () => {
           <Select value={tipoCompraWorkshop} onValueChange={v => setTipoCompraWorkshop(v as TipoCompraWorkshop)}>
             <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {WORKSHOP_TIPO_COMPRA.map(t => (
+              {(TIPO_COMPRA.length > 0 ? TIPO_COMPRA : WORKSHOP_TIPO_COMPRA).map((t: any) => (
                 <SelectItem key={t.value} value={t.value}>
                   {t.label} {loteAtualWorkshop ? `— R$ ${(loteAtualWorkshop as any)[`preco_${t.value}`]?.toFixed(2) || ''}` : ''}
                 </SelectItem>
@@ -835,7 +877,7 @@ const Inscricao = () => {
                   <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pix">PIX</SelectItem>
-                    <SelectItem value="cartao">Cartão (simulado)</SelectItem>
+                    <SelectItem value="cartao">Mercado Pago (cartão)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -968,7 +1010,7 @@ const Inscricao = () => {
                   <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pix">PIX</SelectItem>
-                    <SelectItem value="cartao">Cartão (simulado)</SelectItem>
+                    <SelectItem value="cartao">Mercado Pago (cartão)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

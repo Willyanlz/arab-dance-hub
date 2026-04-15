@@ -15,6 +15,7 @@ import Ingressos from "./pages/Ingressos.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import UpdatePassword from "./pages/UpdatePassword.tsx";
 import AdminScanner from "./pages/AdminScanner.tsx";
+import Profile from "./pages/Profile.tsx";
 import { Navigate } from "react-router-dom";
 import { ConfigInscricoes } from "./pages/admin-config/ConfigInscricoes";
 import { ConfigPrecos } from "./pages/admin-config/ConfigPrecos";
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/inscricao" element={<Inscricao />} />
             <Route path="/ingressos" element={<Ingressos />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/perfil" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/config" element={<AdminConfig />}>
               <Route index element={<Navigate to="geral" replace />} />

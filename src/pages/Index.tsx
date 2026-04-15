@@ -62,27 +62,23 @@ const Index = () => {
   const eventoEdicao = c('evento_edicao', '9ª Edição');
   const eventoSubtitulo = c('evento_subtitulo', 'Festival Araraquarense de Danças Árabes');
   const eventoDescricao = c('evento_descricao', 'Competições • Mostras • Workshops • Premiações');
+  const eventoBackgroundUrl = c('evento_background_url', '');
 
   // Rules from config or defaults
-  const regrasMusica = Array.isArray(config.regras_musica) ? config.regras_musica : [
-    'Formato MP3 via pen drive',
-    'Entregar antes da apresentação',
-    'Solo/Dupla/Trio: até 3 minutos',
-    'Grupo: até 4 minutos',
-  ];
-  const regrasProibicoes = Array.isArray(config.regras_proibicoes) ? config.regras_proibicoes : [
-    'Uso de fogo',
-    'Uso de água',
-    'Elementos perigosos',
-    'Atrasos desclassificam',
-  ];
+  const regrasMusica = Array.isArray(config.regras_musica) ? config.regras_musica.filter(Boolean) : [];
+  const regrasProibicoes = Array.isArray(config.regras_proibicoes) ? config.regras_proibicoes.filter(Boolean) : [];
+  const hasModalidades = modalidades.length > 0;
+  const hasPremiacoes = Array.isArray(premiacoes) && premiacoes.length > 0;
+  const hasPontuacao = Object.keys(pontuacao || {}).length > 0;
+  const hasRegras = regrasMusica.length > 0 || regrasProibicoes.length > 0;
+  const hasStands = stands.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
       {/* Hero */}
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroBg} alt="Festival de Danças Árabes" className="w-full h-full object-cover" width={1920} height={1080} />
+          <img src={eventoBackgroundUrl || heroBg} alt="Festival de Danças Árabes" className="w-full h-full object-cover" width={1920} height={1080} />
           <div className="absolute inset-0 bg-gradient-hero opacity-80" />
         </div>
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
@@ -137,7 +133,7 @@ const Index = () => {
       </section>
 
       {/* Modalidades */}
-      <section className="py-20 px-4 bg-card">
+      {hasModalidades && <section className="py-20 px-4 bg-card">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-serif font-bold text-center mb-12 text-foreground">
             Modalidades
@@ -150,7 +146,7 @@ const Index = () => {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* Ingressos CTA */}
       <section className="py-20 px-4">
@@ -169,7 +165,7 @@ const Index = () => {
       </section>
 
       {/* Premiações */}
-      <section className="py-20 px-4 bg-card">
+      {hasPremiacoes && <section className="py-20 px-4 bg-card">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-serif font-bold text-center mb-12 text-foreground">
             <Trophy className="inline-block w-8 h-8 text-primary mr-2 mb-1" />
@@ -190,10 +186,10 @@ const Index = () => {
             + Medalhas para 1º, 2º e 3º lugar em todas as categorias
           </p>
         </div>
-      </section>
+      </section>}
 
       {/* Pontuação */}
-      <section className="py-20 px-4">
+      {hasPontuacao && <section className="py-20 px-4">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-serif font-bold text-center mb-12 text-foreground">
             Critérios de Pontuação
@@ -214,10 +210,10 @@ const Index = () => {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* Regras */}
-      <section className="py-20 px-4 bg-card">
+      {hasRegras && <section className="py-20 px-4 bg-card">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-serif font-bold text-center mb-12 text-foreground">
             Regras Importantes
@@ -243,16 +239,16 @@ const Index = () => {
             </Card>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* Stand / Feirinha */}
-      <section className="py-20 px-4">
+      {hasStands && <section className="py-20 px-4">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-serif font-bold text-center mb-12 text-foreground">
             Stand / Feirinha
           </h2>
           <div className="grid md:grid-cols-3 gap-6">
-            {stands.length > 0 ? stands.map((stand, idx) => {
+            {stands.map((stand, idx) => {
               const IconComp = ICON_MAP[stand.icone] || CircleDot;
               return (
                 <Card key={idx} className="bg-card border-border">
@@ -264,12 +260,10 @@ const Index = () => {
                   </CardContent>
                 </Card>
               );
-            }) : (
-              <p className="col-span-3 text-center text-muted-foreground font-sans">Nenhum stand cadastrado. Configure em Painel Admin → Configurações → Stands.</p>
-            )}
+            })}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* CTA */}
       <section className="py-20 px-4 bg-gradient-hero text-center">

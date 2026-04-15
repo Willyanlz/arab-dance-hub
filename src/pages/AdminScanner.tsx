@@ -30,14 +30,24 @@ export default function AdminScanner() {
   const fetchTicket = async (id: string) => {
     setLoadingTicket(true);
     try {
-      const { data, error } = await supabase
+      const { data: ingressoData, error } = await supabase
         .from('ingressos_vendidos')
-        .select('*, tipos_ingresso!inner(nome)')
+        .select('*')
         .eq('id', id)
         .single();
         
       if (error) throw error;
-      setTicket(data);
+
+      const { data: tipoData } = await supabase
+        .from('tipos_ingresso')
+        .select('nome')
+        .eq('id', ingressoData.tipo_ingresso_id)
+        .maybeSingle();
+
+      setTicket({
+        ...ingressoData,
+        tipos_ingresso: { nome: tipoData?.nome || 'Ingresso' },
+      });
     } catch (err) {
       toast({ title: 'Erro ao buscar ticket', description: 'QR Code inválido ou ticket não encontrado.', variant: 'destructive' });
       setTicket(null);
@@ -89,6 +99,11 @@ export default function AdminScanner() {
   };
 
   if (authLoading) return null;
+  const pagamentoConfirmado = ticket && (
+    ticket.status === 'pago' ||
+    ticket.status === 'confirmado' ||
+    ticket.status === 'Concluído'
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -125,7 +140,7 @@ export default function AdminScanner() {
         )}
 
         {ticket && !loadingTicket && (
-          <Card className={`border-2 ${ticket.status !== 'Concluído' ? 'border-destructive' : (ticket.quantidade_validada >= ticket.quantidade ? 'border-none opacity-80' : 'border-green-500')} bg-card`}>
+          <Card className={`border-2 ${!pagamentoConfirmado ? 'border-destructive' : (ticket.quantidade_validada >= ticket.quantidade ? 'border-none opacity-80' : 'border-green-500')} bg-card`}>
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -133,7 +148,7 @@ export default function AdminScanner() {
                   <p className="text-sm text-muted-foreground font-sans">Comprador: <span className="text-foreground">{ticket.nome_comprador}</span></p>
                   <p className="text-sm text-muted-foreground font-sans">E-mail: <span className="text-foreground">{ticket.email}</span></p>
                 </div>
-                {ticket.status === 'Concluído' ? (
+                {pagamentoConfirmado ? (
                   <CheckCircle2 className="w-8 h-8 text-green-500" />
                 ) : (
                   <XCircle className="w-8 h-8 text-destructive" />
@@ -158,9 +173,9 @@ export default function AdminScanner() {
                 </span>
               </div>
 
-              {ticket.status !== 'Concluído' ? (
+              {!pagamentoConfirmado ? (
                 <div className="p-3 bg-destructive/10 text-destructive text-sm font-bold text-center rounded-lg mt-4 font-sans">
-                  Pagamento não concluído.
+                  Pagamento ainda não confirmado no dashboard (status atual: {ticket.status}).
                 </div>
               ) : ticket.quantidade_validada >= ticket.quantidade ? (
                 <div className="p-3 bg-muted text-muted-foreground text-sm font-bold text-center rounded-lg mt-4 font-sans border border-border">

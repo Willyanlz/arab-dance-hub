@@ -18,6 +18,7 @@ export const ConfigEvento = () => {
   const [eventoEdicao, setEventoEdicao] = useState('');
   const [eventoSubtitulo, setEventoSubtitulo] = useState('');
   const [eventoDescricao, setEventoDescricao] = useState('');
+  const [eventoBackgroundUrl, setEventoBackgroundUrl] = useState('');
   
   const [regrasMusica, setRegrasMusica] = useState<string[]>([]);
   const [regrasProibicoes, setRegrasProibicoes] = useState<string[]>([]);
@@ -38,6 +39,7 @@ export const ConfigEvento = () => {
       setEventoEdicao(map.evento_edicao || '');
       setEventoSubtitulo(map.evento_subtitulo || '');
       setEventoDescricao(map.evento_descricao || '');
+      setEventoBackgroundUrl(map.evento_background_url || '');
       setRegrasMusica(map.regras_musica || []);
       setRegrasProibicoes(map.regras_proibicoes || []);
       setPremiacoes(map.premiacoes || []);
@@ -53,6 +55,21 @@ export const ConfigEvento = () => {
   };
 
   const saveAll = async () => {
+    const templateMirror = {
+      titulo_email: eventoNome || 'F.A.D.D.A',
+      subtitulo_email: eventoSubtitulo || 'Festival Araraquarense de Danças Árabes',
+      rodape_evento: eventoEdicao || '9º F.A.D.D.A - 2026',
+      rodape_local: eventoLocal || 'Araraquara, São Paulo',
+    };
+
+    const { data: templateData } = await supabase
+      .from('site_config')
+      .select('chave,valor')
+      .in('chave', ['email_template_ingresso', 'email_template_inscricao']);
+
+    const templateMap: Record<string, any> = {};
+    (templateData || []).forEach((item: any) => { templateMap[item.chave] = item.valor; });
+
     await Promise.all([
       upsert('evento_nome', eventoNome),
       upsert('evento_data', eventoData),
@@ -62,12 +79,25 @@ export const ConfigEvento = () => {
       upsert('evento_edicao', eventoEdicao),
       upsert('evento_subtitulo', eventoSubtitulo),
       upsert('evento_descricao', eventoDescricao),
+      upsert('evento_background_url', eventoBackgroundUrl),
       upsert('regras_musica', regrasMusica),
       upsert('regras_proibicoes', regrasProibicoes),
       upsert('premiacoes', premiacoes),
       upsert('pontuacao', pontuacao),
+      upsert('email_template_ingresso', { ...(templateMap.email_template_ingresso || {}), ...templateMirror }),
+      upsert('email_template_inscricao', { ...(templateMap.email_template_inscricao || {}), ...templateMirror }),
     ]);
     toast({ title: '✅ Informações do evento salvas!' });
+  };
+
+  const handleBackgroundUpload = (file?: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      setEventoBackgroundUrl(result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const addRegraMusica = () => setRegrasMusica([...regrasMusica, '']);
@@ -100,6 +130,19 @@ export const ConfigEvento = () => {
             <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Local</Label><Input value={eventoLocal} onChange={e => setEventoLocal(e.target.value)} className="bg-background border-border" /></div>
             <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Horários</Label><Input value={eventoHorario} onChange={e => setEventoHorario(e.target.value)} className="bg-background border-border" /></div>
             <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Chave PIX</Label><Input value={eventoPix} onChange={e => setEventoPix(e.target.value)} className="bg-background border-border" /></div>
+            <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
+              <Label className="text-xs uppercase font-bold text-muted-foreground">Background principal (Landing)</Label>
+              <Input
+                value={eventoBackgroundUrl}
+                onChange={e => setEventoBackgroundUrl(e.target.value)}
+                className="bg-background border-border mb-2"
+                placeholder="https://... ou upload abaixo"
+              />
+              <Input type="file" accept="image/*" onChange={e => handleBackgroundUpload(e.target.files?.[0])} className="bg-background border-border" />
+              {eventoBackgroundUrl && (
+                <img src={eventoBackgroundUrl} alt="Preview do background" className="mt-3 h-32 w-full object-cover rounded-lg border border-border" />
+              )}
+            </div>
           </div>
           <div className="space-y-1.5 md:col-span-2">
             <Label className="text-xs uppercase font-bold text-muted-foreground">Descrição Principal</Label>

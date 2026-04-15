@@ -8,34 +8,80 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { Save, Eye, EyeOff, Mail, Palette } from 'lucide-react';
 import { TicketEmail, defaultTicketTemplate, type TicketTemplateConfig } from '@/components/email-templates/TicketTemplate';
+import { InscricaoEmail, defaultInscricaoTemplate, type InscricaoTemplateConfig } from '@/components/email-templates/InscricaoTemplate';
 
 export const ConfigEmailTemplate = () => {
   const [loading, setLoading] = useState(true);
-  const [config, setConfig] = useState<TicketTemplateConfig>(defaultTicketTemplate);
+  const [activeTab, setActiveTab] = useState<'ingresso' | 'inscricao'>('ingresso');
+  const [ticketConfig, setTicketConfig] = useState<TicketTemplateConfig>(defaultTicketTemplate);
+  const [inscricaoConfig, setInscricaoConfig] = useState<InscricaoTemplateConfig>(defaultInscricaoTemplate);
   const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => { loadConfig(); }, []);
 
+  const getEventMirror = (map: Record<string, any>) => ({
+    titulo_email: map.evento_nome || defaultTicketTemplate.titulo_email,
+    subtitulo_email: map.evento_subtitulo || defaultTicketTemplate.subtitulo_email,
+    rodape_evento: map.evento_edicao || defaultTicketTemplate.rodape_evento,
+    rodape_local: map.evento_local || defaultTicketTemplate.rodape_local,
+  });
+
   const loadConfig = async () => {
     setLoading(true);
-    const { data } = await supabase.from('site_config').select('*').eq('chave', 'email_template_ingresso').single();
-    if (data?.valor && typeof data.valor === 'object' && !Array.isArray(data.valor)) {
-      setConfig({ ...defaultTicketTemplate, ...(data.valor as Record<string, any>) } as TicketTemplateConfig);
+    const { data } = await supabase
+      .from('site_config')
+      .select('*')
+      .in('chave', ['email_template_ingresso', 'email_template_inscricao', 'evento_nome', 'evento_subtitulo', 'evento_edicao', 'evento_local']);
+
+    const map: Record<string, any> = {};
+    (data || []).forEach((item: any) => {
+      map[item.chave] = item.valor;
+    });
+
+    const eventMirror = getEventMirror(map);
+    const ticketSaved = map.email_template_ingresso && typeof map.email_template_ingresso === 'object' ? map.email_template_ingresso : {};
+    const inscricaoSaved = map.email_template_inscricao && typeof map.email_template_inscricao === 'object' ? map.email_template_inscricao : {};
+
+    setTicketConfig({
+      ...defaultTicketTemplate,
+      ...ticketSaved,
+      ...eventMirror,
+    } as TicketTemplateConfig);
+
+    setInscricaoConfig({
+      ...defaultInscricaoTemplate,
+      ...inscricaoSaved,
+      ...eventMirror,
+    } as InscricaoTemplateConfig);
+
+    if (!map.email_template_inscricao) {
+      await supabase.from('site_config').upsert(
+        { chave: 'email_template_inscricao', valor: { ...defaultInscricaoTemplate, ...eventMirror }, descricao: 'Template do email de confirmação de inscrição' } as any,
+        { onConflict: 'chave' }
+      );
     }
     setLoading(false);
   };
 
   const saveConfig = async () => {
     const { error } = await supabase.from('site_config').upsert(
-      { chave: 'email_template_ingresso', valor: config as any, descricao: 'Template do email de ingresso' },
+      {
+        chave: activeTab === 'ingresso' ? 'email_template_ingresso' : 'email_template_inscricao',
+        valor: (activeTab === 'ingresso' ? ticketConfig : inscricaoConfig) as any,
+        descricao: activeTab === 'ingresso' ? 'Template do email de ingresso' : 'Template do email de confirmação de inscrição',
+      },
       { onConflict: 'chave' }
     );
     if (error) toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     else toast({ title: '✅ Template salvo com sucesso!' });
   };
 
-  const updateField = (field: keyof TicketTemplateConfig, value: string) => {
-    setConfig(prev => ({ ...prev, [field]: value }));
+  const updateTicketField = (field: keyof TicketTemplateConfig, value: string) => {
+    setTicketConfig(prev => ({ ...prev, [field]: value }));
+  };
+
+  const updateInscricaoField = (field: keyof InscricaoTemplateConfig, value: string) => {
+    setInscricaoConfig(prev => ({ ...prev, [field]: value }));
   };
 
   if (loading) return <div className="p-8 text-center animate-pulse text-muted-foreground font-sans">Carregando template...</div>;
@@ -45,48 +91,86 @@ export const ConfigEmailTemplate = () => {
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="font-serif text-foreground text-lg flex items-center gap-2">
-            <Mail className="w-5 h-5 text-primary" /> Template do E-mail de Ingresso
+            <Mail className="w-5 h-5 text-primary" /> Templates de E-mail
           </CardTitle>
           <CardDescription className="text-xs">
-            Edite os textos e cores do e-mail enviado ao comprador de ingresso.
+            A primeira carga espelha dados da Configuração do Evento. Ao alterar o evento, os campos espelhados serão refletidos aqui.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="flex flex-wrap gap-2">
+            <Button variant={activeTab === 'ingresso' ? 'default' : 'outline'} onClick={() => setActiveTab('ingresso')}>
+              Ingressos
+            </Button>
+            <Button variant={activeTab === 'inscricao' ? 'default' : 'outline'} onClick={() => setActiveTab('inscricao')}>
+              Inscrições
+            </Button>
+          </div>
+
           {/* Textos */}
           <div className="space-y-4">
             <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">📝 Textos</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs text-muted-foreground">Título do E-mail</Label>
-                <Input value={config.titulo_email} onChange={e => updateField('titulo_email', e.target.value)} className="bg-background" />
+                <Input
+                  value={activeTab === 'ingresso' ? ticketConfig.titulo_email : inscricaoConfig.titulo_email}
+                  onChange={e => activeTab === 'ingresso' ? updateTicketField('titulo_email', e.target.value) : updateInscricaoField('titulo_email', e.target.value)}
+                  className="bg-background"
+                />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Subtítulo</Label>
-                <Input value={config.subtitulo_email} onChange={e => updateField('subtitulo_email', e.target.value)} className="bg-background" />
+                <Input
+                  value={activeTab === 'ingresso' ? ticketConfig.subtitulo_email : inscricaoConfig.subtitulo_email}
+                  onChange={e => activeTab === 'ingresso' ? updateTicketField('subtitulo_email', e.target.value) : updateInscricaoField('subtitulo_email', e.target.value)}
+                  className="bg-background"
+                />
               </div>
               <div className="md:col-span-2">
                 <Label className="text-xs text-muted-foreground">Mensagem de confirmação</Label>
-                <Textarea value={config.mensagem_confirmacao} onChange={e => updateField('mensagem_confirmacao', e.target.value)} rows={2} className="bg-background" />
+                <Textarea
+                  value={activeTab === 'ingresso' ? ticketConfig.mensagem_confirmacao : inscricaoConfig.mensagem_confirmacao}
+                  onChange={e => activeTab === 'ingresso' ? updateTicketField('mensagem_confirmacao', e.target.value) : updateInscricaoField('mensagem_confirmacao', e.target.value)}
+                  rows={2}
+                  className="bg-background"
+                />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Título da seção de detalhes</Label>
-                <Input value={config.titulo_detalhes} onChange={e => updateField('titulo_detalhes', e.target.value)} className="bg-background" />
+                <Input
+                  value={activeTab === 'ingresso' ? ticketConfig.titulo_detalhes : inscricaoConfig.titulo_detalhes}
+                  onChange={e => activeTab === 'ingresso' ? updateTicketField('titulo_detalhes', e.target.value) : updateInscricaoField('titulo_detalhes', e.target.value)}
+                  className="bg-background"
+                />
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Título do voucher</Label>
-                <Input value={config.titulo_voucher} onChange={e => updateField('titulo_voucher', e.target.value)} className="bg-background" />
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-xs text-muted-foreground">Instrução do voucher</Label>
-                <Input value={config.instrucao_voucher} onChange={e => updateField('instrucao_voucher', e.target.value)} className="bg-background" />
-              </div>
+              {activeTab === 'ingresso' && (
+                <>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Título do voucher</Label>
+                    <Input value={ticketConfig.titulo_voucher} onChange={e => updateTicketField('titulo_voucher', e.target.value)} className="bg-background" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-xs text-muted-foreground">Instrução do voucher</Label>
+                    <Input value={ticketConfig.instrucao_voucher} onChange={e => updateTicketField('instrucao_voucher', e.target.value)} className="bg-background" />
+                  </div>
+                </>
+              )}
               <div>
                 <Label className="text-xs text-muted-foreground">Rodapé - Evento</Label>
-                <Input value={config.rodape_evento} onChange={e => updateField('rodape_evento', e.target.value)} className="bg-background" />
+                <Input
+                  value={activeTab === 'ingresso' ? ticketConfig.rodape_evento : inscricaoConfig.rodape_evento}
+                  onChange={e => activeTab === 'ingresso' ? updateTicketField('rodape_evento', e.target.value) : updateInscricaoField('rodape_evento', e.target.value)}
+                  className="bg-background"
+                />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Rodapé - Local</Label>
-                <Input value={config.rodape_local} onChange={e => updateField('rodape_local', e.target.value)} className="bg-background" />
+                <Input
+                  value={activeTab === 'ingresso' ? ticketConfig.rodape_local : inscricaoConfig.rodape_local}
+                  onChange={e => activeTab === 'ingresso' ? updateTicketField('rodape_local', e.target.value) : updateInscricaoField('rodape_local', e.target.value)}
+                  className="bg-background"
+                />
               </div>
             </div>
           </div>
@@ -108,11 +192,15 @@ export const ConfigEmailTemplate = () => {
                   <div className="flex items-center gap-2 mt-1">
                     <input
                       type="color"
-                      value={config[key]}
-                      onChange={e => updateField(key, e.target.value)}
+                      value={(activeTab === 'ingresso' ? ticketConfig : inscricaoConfig)[key]}
+                      onChange={e => activeTab === 'ingresso' ? updateTicketField(key as keyof TicketTemplateConfig, e.target.value) : updateInscricaoField(key as keyof InscricaoTemplateConfig, e.target.value)}
                       className="w-10 h-10 rounded border border-border cursor-pointer"
                     />
-                    <Input value={config[key]} onChange={e => updateField(key, e.target.value)} className="bg-background text-xs font-mono" />
+                    <Input
+                      value={(activeTab === 'ingresso' ? ticketConfig : inscricaoConfig)[key]}
+                      onChange={e => activeTab === 'ingresso' ? updateTicketField(key as keyof TicketTemplateConfig, e.target.value) : updateInscricaoField(key as keyof InscricaoTemplateConfig, e.target.value)}
+                      className="bg-background text-xs font-mono"
+                    />
                   </div>
                 </div>
               ))}
@@ -138,14 +226,25 @@ export const ConfigEmailTemplate = () => {
           </CardHeader>
           <CardContent>
             <div className="rounded-lg overflow-hidden border border-border">
-              <TicketEmail
-                nome="João da Silva"
-                ingresso="Pista Premium"
-                quantidade={2}
-                valorTotal={150.00}
-                qrCodeUrl="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=PREVIEW"
-                config={config}
-              />
+              {activeTab === 'ingresso' ? (
+                <TicketEmail
+                  nome="João da Silva"
+                  ingresso="Pista Premium"
+                  quantidade={2}
+                  valorTotal={150.00}
+                  qrCodeUrl="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=PREVIEW"
+                  config={ticketConfig}
+                />
+              ) : (
+                <InscricaoEmail
+                  nome="João da Silva"
+                  tipoInscricao="Competição"
+                  modalidade="Solo"
+                  nomeCoreografia="Noites do Oriente"
+                  valorTotal={220}
+                  config={inscricaoConfig}
+                />
+              )}
             </div>
           </CardContent>
         </Card>

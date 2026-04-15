@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Ticket, Minus, Plus, Lock, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Ticket, Minus, Plus, ShoppingCart } from 'lucide-react';
+import { initializePaymentGateway } from '@/lib/paymentGateway';
 
 interface TipoIngresso {
   id: string;
@@ -36,8 +38,13 @@ const Ingressos = () => {
   const [telefone, setTelefone] = useState('');
   const [termos, setTermos] = useState(false);
   const [pixInfo, setPixInfo] = useState({ chave: 'fadda@festival.com.br', banco: 'Nubank' });
+  const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'cartao'>('pix');
 
-  // Removed strict auth wall so public can view tickets
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login?redirect=/ingressos');
+    }
+  }, [authLoading, user, navigate]);
 
   useEffect(() => {
     Promise.all([
@@ -99,7 +106,15 @@ const Ingressos = () => {
 
     setSubmitting(true);
     try {
-      await supabase.from('ingressos_vendidos').insert({
+      const isAutomaticPayment = metodoPagamento === 'cartao';
+      const gatewayResult = await initializePaymentGateway({
+        metodo: metodoPagamento,
+        valor: precoFinal(),
+        descricao: `Compra de ingresso: ${selectedTipo.nome}`,
+        referenciaId: selectedTipo.id,
+      });
+
+      const { data: saleData, error: saleError } = await supabase.from('ingressos_vendidos').insert({
         tipo_ingresso_id: selectedTipo.id,
         user_id: user?.id || null,
         nome_comprador: nome,
@@ -108,9 +123,29 @@ const Ingressos = () => {
         telefone: telefone || null,
         quantidade,
         valor_total: precoFinal(),
-        status: 'pendente',
+        status: isAutomaticPayment ? 'confirmado' : 'pendente',
+      }).select().single();
+
+      if (saleError) throw saleError;
+
+      if (isAutomaticPayment && saleData) {
+        supabase.functions.invoke('send-ticket', {
+          body: {
+            email,
+            nome_comprador: nome,
+            quantidade,
+            tipo_ingresso_nome: selectedTipo.nome,
+            ingresso_id: saleData.id,
+            valor_total: precoFinal(),
+          },
+        }).catch(console.error);
+      }
+      toast({
+        title: '🎫 Compra registrada!',
+        description: isAutomaticPayment
+          ? 'Pagamento confirmado automaticamente e ingresso enviado por e-mail.'
+          : (gatewayResult.instructions || 'Aguarde a confirmação do pagamento.'),
       });
-      toast({ title: '🎫 Compra registrada!', description: 'Efetue o pagamento via PIX e aguarde a confirmação.' });
       setShowForm(false);
       setQuantidade(1);
       setTermos(false);
@@ -121,7 +156,7 @@ const Ingressos = () => {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Carregando...</p></div>;
+  if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Carregando...</p></div>;
 
   const disponivel = selectedTipo ? selectedTipo.quantidade_total - selectedTipo.quantidade_vendida : 0;
 
@@ -232,9 +267,22 @@ const Ingressos = () => {
                 </div>
 
                 <div className="rounded-xl border-2 border-gold/40 bg-primary/5 p-4 text-center font-sans space-y-1">
+                  <Select value={metodoPagamento} onValueChange={(value) => setMetodoPagamento(value as 'pix' | 'cartao')}>
+                    <SelectTrigger className="bg-background border-border text-foreground mb-3">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pix">PIX</SelectItem>
+                      <SelectItem value="cartao">Mercado Pago (cartão)</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Pagamento via PIX</p>
                   <p className="text-foreground font-bold text-lg">{pixInfo.chave}</p>
-                  <p className="text-xs text-muted-foreground">{pixInfo.banco} — Envie o comprovante após a compra</p>
+                  <p className="text-xs text-muted-foreground">
+                    {metodoPagamento === 'pix'
+                      ? `${pixInfo.banco} — Envie o comprovante após a compra`
+                      : 'Mercado Pago pré-configurado. Finalização de checkout pode ser ativada em produção.'}
+                  </p>
                 </div>
 
                 <label htmlFor="termos_ingresso" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">

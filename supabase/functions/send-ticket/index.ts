@@ -49,7 +49,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Load dynamic template config
+    // Load dynamic template config + mirror event data
     let tpl = { ...defaultTemplate };
     try {
       const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -59,6 +59,20 @@ const handler = async (req: Request): Promise<Response> => {
       if (data?.valor && typeof data.valor === 'object') {
         tpl = { ...defaultTemplate, ...data.valor };
       }
+      const { data: eventConfig } = await sb
+        .from('site_config')
+        .select('chave,valor')
+        .in('chave', ['evento_nome', 'evento_subtitulo', 'evento_edicao', 'evento_local']);
+
+      const eventMap: Record<string, string> = {};
+      (eventConfig || []).forEach((item: any) => {
+        eventMap[item.chave] = String(item.valor || '').replace(/"/g, '');
+      });
+
+      if (eventMap.evento_nome) tpl.titulo_email = eventMap.evento_nome;
+      if (eventMap.evento_subtitulo) tpl.subtitulo_email = eventMap.evento_subtitulo;
+      if (eventMap.evento_edicao) tpl.rodape_evento = eventMap.evento_edicao;
+      if (eventMap.evento_local) tpl.rodape_local = eventMap.evento_local;
     } catch (_) { /* use defaults */ }
 
     const encodedId = btoa(encodeURIComponent(ticketReq.ingresso_id));

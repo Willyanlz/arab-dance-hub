@@ -35,8 +35,18 @@ const Dashboard = () => {
     supabase.from('inscricoes').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).then(({ data }) => {
       if (data) setInscricoes(data);
     });
-    supabase.from('ingressos_vendidos').select('*, tipos_ingresso(nome)').eq('user_id', user.id).order('created_at', { ascending: false }).then(({ data }) => {
-      if (data) setIngressos(data as any);
+    Promise.all([
+      supabase.from('ingressos_vendidos').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('tipos_ingresso').select('id, nome'),
+    ]).then(([{ data: ingressosData }, { data: tiposData }]) => {
+      if (ingressosData) {
+        const tiposMap = new Map((tiposData || []).map((tipo: any) => [tipo.id, tipo.nome]));
+        const merged = ingressosData.map((ing: any) => ({
+          ...ing,
+          tipos_ingresso: { nome: tiposMap.get(ing.tipo_ingresso_id) || 'Ingresso' },
+        }));
+        setIngressos(merged as any);
+      }
     });
     supabase.from('profiles').select('*').eq('user_id', user.id).single().then(({ data }) => {
       if (data) setProfile(data);
@@ -48,14 +58,17 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card px-4 py-4">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
+        <div className="max-w-6xl mx-auto flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
           <Link to="/" className="text-xl font-serif font-bold text-gradient-gold">F.A.D.D.A</Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             {isAdmin && (
               <Button asChild variant="outline" size="sm" className="border-border text-foreground font-sans">
                 <Link to="/admin">Painel Admin</Link>
               </Button>
             )}
+            <Button asChild variant="outline" size="sm" className="border-border text-foreground font-sans">
+              <Link to="/perfil">Meu Perfil</Link>
+            </Button>
             <span className="text-sm text-muted-foreground font-sans flex items-center gap-1"><User className="w-4 h-4" />{profile?.nome || user?.email}</span>
             <Button variant="ghost" size="icon" onClick={signOut}><LogOut className="w-4 h-4 text-muted-foreground" /></Button>
           </div>

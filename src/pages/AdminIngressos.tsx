@@ -322,14 +322,9 @@ const AdminIngressos = () => {
                           {statusIcons[v.status]} {v.status}
                         </Badge>
                         <div className="flex gap-1">
-                          {v.status === 'pendente' && (
-                            <Button size="sm" onClick={() => updateStatus(v.id, 'pago')} className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 h-7 font-sans">
-                              Pago
-                            </Button>
-                          )}
                           {(v.status === 'pago' || v.status === 'pendente') && (
                             <Button size="sm" onClick={() => updateStatus(v.id, 'confirmado')} className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 h-7 font-sans">
-                              Confirmar
+                              Confirmar + E-mail
                             </Button>
                           )}
                           {v.status !== 'cancelado' && (
