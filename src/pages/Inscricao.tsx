@@ -19,6 +19,7 @@ import {
   type CategoriaType, type TipoCompraWorkshop
 } from '@/lib/pricing';
 import { ArrowLeft, Plus, Trash2, Trophy, Star, Music, BookOpen, ChevronRight } from 'lucide-react';
+import { FormFieldConfig } from './admin-config/components/FormBuilder';
 
 interface Participante {
   nome: string;
@@ -342,12 +343,17 @@ const Inscricao = () => {
 
   // ── Validate steps ────────────────────────────────────────────────────────
   const evaluateCondition = (condition: any) => {
+    // Sem condição = sempre visível
     if (!condition || !condition.field) return true;
-    const val = dadosAdicionais[condition.field] || '';
+
+    const val = dadosAdicionais[condition.field];
+
+    // Campo ainda não preenchido = condição falsa (campo filho fica oculto)
+    if (val === undefined || val === null || val === '') return false;
 
     switch (condition.operator) {
-      case '==': return val == condition.value;
-      case '!=': return val != condition.value;
+      case '==': return String(val) == String(condition.value);
+      case '!=': return String(val) != String(condition.value);
       case '>': return Number(val) > Number(condition.value);
       case '<': return Number(val) < Number(condition.value);
       case 'includes': return String(val).toLowerCase().includes(String(condition.value).toLowerCase());
@@ -359,8 +365,11 @@ const Inscricao = () => {
     return fields.filter(f => evaluateCondition(f.showIf));
   };
 
+  // ── Validate step 2 ───────────────────────────────────────────────────────
   const canProceedStep2 = () => {
     const config = formConfigs.find(c => c.tipo_inscricao === tipoInscricao);
+
+    // Fallback sem form config dinâmico
     if (!config || !config.fields) {
       if (tipoInscricao === 'competicao') return !!modalidade && !!nomeCoreografia;
       if (tipoInscricao === 'mostra') return !!modalidadeMostra && !!nomeCoreografiaMostra;
@@ -368,17 +377,49 @@ const Inscricao = () => {
       return false;
     }
 
-    let fields = typeof config.fields === 'string' ? JSON.parse(config.fields) : config.fields;
-    const visibleFields = getVisibleFields(fields);
+    const fields: FormFieldConfig[] = typeof config.fields === 'string'
+      ? JSON.parse(config.fields)
+      : config.fields;
 
-    const dynamicValid = visibleFields.every((f: any) =>
-      !f.required || (!!dadosAdicionais[f.name] && dadosAdicionais[f.name].toString().trim().length > 0)
-    );
+    // ✅ Apenas campos que estão VISÍVEIS (condição verdadeira) são validados
+    const visibleFields = fields.filter(f => evaluateCondition(f.showIf));
 
-    if (tipoInscricao === 'competicao') return !!modalidade && !!nomeCoreografia && dynamicValid;
-    if (tipoInscricao === 'mostra') return !!modalidadeMostra && !!nomeCoreografiaMostra && dynamicValid;
-    if (tipoInscricao === 'workshop') return workshopsSelecionados.length > 0 && !!tipoCompraWorkshop && dynamicValid;
-    return false;
+    const dynamicValid = visibleFields.every(f => {
+      if (!f.required) return true;
+
+      // Campos de sistema são controlados por state próprio, não dadosAdicionais
+      if (['periodo', 'modalidade', 'nome_coreografia', 'tipo_musica',
+        'tipo_participacao', 'tipo_compra', 'workshops', 'categoria'].includes(f.name)) {
+        return true; // validados abaixo separadamente
+      }
+
+      const val = dadosAdicionais[f.name];
+      return val !== undefined && val !== null && String(val).trim().length > 0;
+    });
+
+    // Validações dos campos de sistema (só se estiverem presentes no form config)
+    const hasField = (name: string) => visibleFields.some(f => f.name === name);
+
+    const sistemaValid = (() => {
+      if (tipoInscricao === 'competicao') {
+        const modalidadeOk = !hasField('modalidade') || !!modalidade;
+        const coreografiaOk = !hasField('nome_coreografia') || !!nomeCoreografia;
+        return modalidadeOk && coreografiaOk;
+      }
+      if (tipoInscricao === 'mostra') {
+        const modalidadeOk = !hasField('modalidade') || !!modalidadeMostra;
+        const coreografiaOk = !hasField('nome_coreografia') || !!nomeCoreografiaMostra;
+        return modalidadeOk && coreografiaOk;
+      }
+      if (tipoInscricao === 'workshop') {
+        const workshopsOk = !hasField('workshops') || workshopsSelecionados.length > 0;
+        const tipoOk = !hasField('tipo_compra') || !!tipoCompraWorkshop;
+        return workshopsOk && tipoOk;
+      }
+      return true;
+    })();
+
+    return dynamicValid && sistemaValid;
   };
 
   const canSubmit = () => {
