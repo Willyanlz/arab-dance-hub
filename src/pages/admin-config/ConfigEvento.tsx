@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { Save, Plus, Trash2, Calendar, Trophy, Music, Ban, Star } from 'lucide-react';
+import { Save, Plus, Trash2, Calendar, Trophy, Star, Shield } from 'lucide-react';
 
 export const ConfigEvento = () => {
   const [loading, setLoading] = useState(true);
@@ -15,10 +15,12 @@ export const ConfigEvento = () => {
   const [eventoLocal, setEventoLocal] = useState('');
   const [eventoHorario, setEventoHorario] = useState('');
   const [eventoPix, setEventoPix] = useState('');
+  const [pixBanco, setPixBanco] = useState('');
   const [eventoEdicao, setEventoEdicao] = useState('');
   const [eventoSubtitulo, setEventoSubtitulo] = useState('');
   const [eventoDescricao, setEventoDescricao] = useState('');
   const [eventoBackgroundUrl, setEventoBackgroundUrl] = useState('');
+  const [rodapeTexto, setRodapeTexto] = useState('');
   
   const [regrasEProibicoes, setRegrasEProibicoes] = useState('');
   const [premiacoes, setPremiacoes] = useState<{categoria:string;valor:string}[]>([]);
@@ -35,10 +37,12 @@ export const ConfigEvento = () => {
       setEventoLocal(map.evento_local || '');
       setEventoHorario(map.evento_horario || '');
       setEventoPix(map.evento_pix || '');
+      setPixBanco(map.pix_banco || '');
       setEventoEdicao(map.evento_edicao || '');
       setEventoSubtitulo(map.evento_subtitulo || '');
       setEventoDescricao(map.evento_descricao || '');
       setEventoBackgroundUrl(map.evento_background_url || '');
+      setRodapeTexto(map.rodape_texto || '');
       setRegrasEProibicoes(map.regras_e_proibicoes || '');
       
       // Fallback migration if new field is empty but old fields had data
@@ -61,7 +65,11 @@ export const ConfigEvento = () => {
   useEffect(() => { loadData(); }, [loadData]);
 
   const upsert = async (chave: string, valor: any) => {
-    await supabase.from('site_config').upsert({ chave, valor } as any, { onConflict: 'chave' });
+    const { error } = await supabase.from('site_config').upsert({ chave, valor } as any, { onConflict: 'chave' });
+    if (error) {
+      console.error(`[ConfigEvento] Erro ao salvar "${chave}":`, error);
+      throw new Error(`Falha ao salvar "${chave}": ${error.message}`);
+    }
   };
 
   const saveAll = async () => {
@@ -80,23 +88,30 @@ export const ConfigEvento = () => {
     const templateMap: Record<string, any> = {};
     (templateData || []).forEach((item: any) => { templateMap[item.chave] = item.valor; });
 
-    await Promise.all([
-      upsert('evento_nome', eventoNome),
-      upsert('evento_data', eventoData),
-      upsert('evento_local', eventoLocal),
-      upsert('evento_horario', eventoHorario),
-      upsert('evento_pix', eventoPix),
-      upsert('evento_edicao', eventoEdicao),
-      upsert('evento_subtitulo', eventoSubtitulo),
-      upsert('evento_descricao', eventoDescricao),
-      upsert('evento_background_url', eventoBackgroundUrl),
-      upsert('regras_e_proibicoes', regrasEProibicoes),
-      upsert('premiacoes', premiacoes),
-      upsert('pontuacao', pontuacao),
-      upsert('email_template_ingresso', { ...(templateMap.email_template_ingresso || {}), ...templateMirror }),
-      upsert('email_template_inscricao', { ...(templateMap.email_template_inscricao || {}), ...templateMirror }),
-    ]);
-    toast({ title: '✅ Informações do evento salvas!' });
+    try {
+      await Promise.all([
+        upsert('evento_nome', eventoNome),
+        upsert('evento_data', eventoData),
+        upsert('evento_local', eventoLocal),
+        upsert('evento_horario', eventoHorario),
+        upsert('evento_pix', eventoPix),
+        upsert('pix_chave', eventoPix),
+        upsert('pix_banco', pixBanco),
+        upsert('evento_edicao', eventoEdicao),
+        upsert('evento_subtitulo', eventoSubtitulo),
+        upsert('evento_descricao', eventoDescricao),
+        upsert('evento_background_url', eventoBackgroundUrl),
+        upsert('rodape_texto', rodapeTexto),
+        upsert('regras_e_proibicoes', regrasEProibicoes),
+        upsert('premiacoes', premiacoes),
+        upsert('pontuacao', pontuacao),
+        upsert('email_template_ingresso', { ...(templateMap.email_template_ingresso || {}), ...templateMirror }),
+        upsert('email_template_inscricao', { ...(templateMap.email_template_inscricao || {}), ...templateMirror }),
+      ]);
+      toast({ title: '✅ Informações do evento salvas com sucesso!' });
+    } catch (err: any) {
+      toast({ title: '❌ Erro ao salvar', description: err.message, variant: 'destructive' });
+    }
   };
 
   const handleBackgroundUpload = (file?: File) => {
@@ -135,6 +150,8 @@ export const ConfigEvento = () => {
             <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Local</Label><Input value={eventoLocal} onChange={e => setEventoLocal(e.target.value)} className="bg-background border-border" /></div>
             <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Horários</Label><Input value={eventoHorario} onChange={e => setEventoHorario(e.target.value)} className="bg-background border-border" /></div>
             <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Chave PIX</Label><Input value={eventoPix} onChange={e => setEventoPix(e.target.value)} className="bg-background border-border" /></div>
+            <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Banco PIX (opcional)</Label><Input value={pixBanco} onChange={e => setPixBanco(e.target.value)} className="bg-background border-border" /></div>
+            <div className="space-y-1.5 md:col-span-2 lg:col-span-3"><Label className="text-xs uppercase font-bold text-muted-foreground">Rodapé (opcional)</Label><Input value={rodapeTexto} onChange={e => setRodapeTexto(e.target.value)} placeholder="Ex: CNPJ, responsável, etc. (se vazio, não aparece)" className="bg-background border-border" /></div>
             <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
               <Label className="text-xs uppercase font-bold text-muted-foreground">Background principal (Landing)</Label>
               <Input

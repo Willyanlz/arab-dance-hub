@@ -11,6 +11,7 @@ export const ConfigTermos = () => {
   const [termoCompeticao, setTermoCompeticao] = useState('');
   const [termoMostra, setTermoMostra] = useState('');
   const [termoWorkshop, setTermoWorkshop] = useState('');
+  const [termoIngressos, setTermoIngressos] = useState('');
 
   useEffect(() => {
     loadTermos();
@@ -24,6 +25,7 @@ export const ConfigTermos = () => {
         if (t.tipo === 'competicao') setTermoCompeticao(t.conteudo || '');
         if (t.tipo === 'mostra') setTermoMostra(t.conteudo || '');
         if (t.tipo === 'workshop') setTermoWorkshop(t.conteudo || '');
+        if (t.tipo === 'ingressos') setTermoIngressos(t.conteudo || '');
       });
     }
     setLoading(false);
@@ -43,6 +45,7 @@ export const ConfigTermos = () => {
         { tipo: 'competicao', label: 'Competição', icon: Trophy, state: termoCompeticao, setState: setTermoCompeticao },
         { tipo: 'mostra', label: 'Mostra', icon: Star, state: termoMostra, setState: setTermoMostra },
         { tipo: 'workshop', label: 'Workshop', icon: BookOpen, state: termoWorkshop, setState: setTermoWorkshop },
+        { tipo: 'ingressos', label: 'Ingressos', icon: FileText, state: termoIngressos, setState: setTermoIngressos },
       ].map(({ tipo, label, icon: Icon, state, setState }) => (
         <Card key={tipo} className="bg-card border-border">
           <CardHeader>

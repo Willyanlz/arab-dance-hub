@@ -40,9 +40,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initializeAuth();
 
     // Set up listener for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
 
+      // Handle session changes synchronously; async operations are wrapped inside
+      if (session) {
+        handleSessionChange(session);
+      } else {
+        handleSessionChange(null);
+      }
+    });
+
+    async function handleSessionChange(session) {
       if (session) {
         setLoading(true); // Indicate we are checking role
         setSession(session);
@@ -55,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsAdmin(false);
         setLoading(false);
       }
-    });
+    }
 
 
     return () => {

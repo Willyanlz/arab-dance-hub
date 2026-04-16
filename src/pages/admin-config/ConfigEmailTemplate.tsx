@@ -12,9 +12,10 @@ import { InscricaoEmail, defaultInscricaoTemplate, type InscricaoTemplateConfig 
 
 export const ConfigEmailTemplate = () => {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'ingresso' | 'inscricao'>('ingresso');
+  const [activeTab, setActiveTab] = useState<'ingresso' | 'inscricao' | 'aguardando'>('ingresso');
   const [ticketConfig, setTicketConfig] = useState<TicketTemplateConfig>(defaultTicketTemplate);
   const [inscricaoConfig, setInscricaoConfig] = useState<InscricaoTemplateConfig>(defaultInscricaoTemplate);
+  const [pendingConfig, setPendingConfig] = useState<InscricaoTemplateConfig>(defaultInscricaoTemplate);
   const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => { loadConfig(); }, []);
@@ -31,7 +32,7 @@ export const ConfigEmailTemplate = () => {
     const { data } = await supabase
       .from('site_config')
       .select('*')
-      .in('chave', ['email_template_ingresso', 'email_template_inscricao', 'evento_nome', 'evento_subtitulo', 'evento_edicao', 'evento_local']);
+      .in('chave', ['email_template_ingresso', 'email_template_inscricao', 'email_template_aguardando_pagamento', 'evento_nome', 'evento_subtitulo', 'evento_edicao', 'evento_local']);
 
     const map: Record<string, any> = {};
     (data || []).forEach((item: any) => {
@@ -41,6 +42,9 @@ export const ConfigEmailTemplate = () => {
     const eventMirror = getEventMirror(map);
     const ticketSaved = map.email_template_ingresso && typeof map.email_template_ingresso === 'object' ? map.email_template_ingresso : {};
     const inscricaoSaved = map.email_template_inscricao && typeof map.email_template_inscricao === 'object' ? map.email_template_inscricao : {};
+    const pendingSaved = map.email_template_aguardando_pagamento && typeof map.email_template_aguardando_pagamento === 'object'
+      ? map.email_template_aguardando_pagamento
+      : {};
 
     setTicketConfig({
       ...defaultTicketTemplate,
@@ -54,9 +58,21 @@ export const ConfigEmailTemplate = () => {
       ...eventMirror,
     } as InscricaoTemplateConfig);
 
+    setPendingConfig({
+      ...defaultInscricaoTemplate,
+      ...pendingSaved,
+      ...eventMirror,
+    } as InscricaoTemplateConfig);
+
     if (!map.email_template_inscricao) {
       await supabase.from('site_config').upsert(
         { chave: 'email_template_inscricao', valor: { ...defaultInscricaoTemplate, ...eventMirror }, descricao: 'Template do email de confirmação de inscrição' } as any,
+        { onConflict: 'chave' }
+      );
+    }
+    if (!map.email_template_aguardando_pagamento) {
+      await supabase.from('site_config').upsert(
+        { chave: 'email_template_aguardando_pagamento', valor: { ...defaultInscricaoTemplate, ...eventMirror }, descricao: 'Template do email de aguardando pagamento' } as any,
         { onConflict: 'chave' }
       );
     }
@@ -64,11 +80,32 @@ export const ConfigEmailTemplate = () => {
   };
 
   const saveConfig = async () => {
+    const key =
+      activeTab === 'ingresso'
+        ? 'email_template_ingresso'
+        : activeTab === 'inscricao'
+          ? 'email_template_inscricao'
+          : 'email_template_aguardando_pagamento';
+
+    const valor =
+      activeTab === 'ingresso'
+        ? ticketConfig
+        : activeTab === 'inscricao'
+          ? inscricaoConfig
+          : pendingConfig;
+
+    const descricao =
+      activeTab === 'ingresso'
+        ? 'Template do email de ingresso'
+        : activeTab === 'inscricao'
+          ? 'Template do email de confirmação de inscrição'
+          : 'Template do email de aguardando pagamento';
+
     const { error } = await supabase.from('site_config').upsert(
       {
-        chave: activeTab === 'ingresso' ? 'email_template_ingresso' : 'email_template_inscricao',
-        valor: (activeTab === 'ingresso' ? ticketConfig : inscricaoConfig) as any,
-        descricao: activeTab === 'ingresso' ? 'Template do email de ingresso' : 'Template do email de confirmação de inscrição',
+        chave: key,
+        valor: valor as any,
+        descricao,
       },
       { onConflict: 'chave' }
     );
@@ -82,6 +119,10 @@ export const ConfigEmailTemplate = () => {
 
   const updateInscricaoField = (field: keyof InscricaoTemplateConfig, value: string) => {
     setInscricaoConfig(prev => ({ ...prev, [field]: value }));
+  };
+
+  const updatePendingField = (field: keyof InscricaoTemplateConfig, value: string) => {
+    setPendingConfig(prev => ({ ...prev, [field]: value }));
   };
 
   if (loading) return <div className="p-8 text-center animate-pulse text-muted-foreground font-sans">Carregando template...</div>;
@@ -105,6 +146,9 @@ export const ConfigEmailTemplate = () => {
             <Button variant={activeTab === 'inscricao' ? 'default' : 'outline'} onClick={() => setActiveTab('inscricao')}>
               Inscrições
             </Button>
+            <Button variant={activeTab === 'aguardando' ? 'default' : 'outline'} onClick={() => setActiveTab('aguardando')}>
+              Aguardando pagamento
+            </Button>
           </div>
 
           {/* Textos */}
@@ -114,24 +158,24 @@ export const ConfigEmailTemplate = () => {
               <div>
                 <Label className="text-xs text-muted-foreground">Título do E-mail</Label>
                 <Input
-                  value={activeTab === 'ingresso' ? ticketConfig.titulo_email : inscricaoConfig.titulo_email}
-                  onChange={e => activeTab === 'ingresso' ? updateTicketField('titulo_email', e.target.value) : updateInscricaoField('titulo_email', e.target.value)}
+                  value={activeTab === 'ingresso' ? ticketConfig.titulo_email : activeTab === 'inscricao' ? inscricaoConfig.titulo_email : pendingConfig.titulo_email}
+                  onChange={e => activeTab === 'ingresso' ? updateTicketField('titulo_email', e.target.value) : activeTab === 'inscricao' ? updateInscricaoField('titulo_email', e.target.value) : updatePendingField('titulo_email', e.target.value)}
                   className="bg-background"
                 />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Subtítulo</Label>
                 <Input
-                  value={activeTab === 'ingresso' ? ticketConfig.subtitulo_email : inscricaoConfig.subtitulo_email}
-                  onChange={e => activeTab === 'ingresso' ? updateTicketField('subtitulo_email', e.target.value) : updateInscricaoField('subtitulo_email', e.target.value)}
+                  value={activeTab === 'ingresso' ? ticketConfig.subtitulo_email : activeTab === 'inscricao' ? inscricaoConfig.subtitulo_email : pendingConfig.subtitulo_email}
+                  onChange={e => activeTab === 'ingresso' ? updateTicketField('subtitulo_email', e.target.value) : activeTab === 'inscricao' ? updateInscricaoField('subtitulo_email', e.target.value) : updatePendingField('subtitulo_email', e.target.value)}
                   className="bg-background"
                 />
               </div>
               <div className="md:col-span-2">
                 <Label className="text-xs text-muted-foreground">Mensagem de confirmação</Label>
                 <Textarea
-                  value={activeTab === 'ingresso' ? ticketConfig.mensagem_confirmacao : inscricaoConfig.mensagem_confirmacao}
-                  onChange={e => activeTab === 'ingresso' ? updateTicketField('mensagem_confirmacao', e.target.value) : updateInscricaoField('mensagem_confirmacao', e.target.value)}
+                  value={activeTab === 'ingresso' ? ticketConfig.mensagem_confirmacao : activeTab === 'inscricao' ? inscricaoConfig.mensagem_confirmacao : pendingConfig.mensagem_confirmacao}
+                  onChange={e => activeTab === 'ingresso' ? updateTicketField('mensagem_confirmacao', e.target.value) : activeTab === 'inscricao' ? updateInscricaoField('mensagem_confirmacao', e.target.value) : updatePendingField('mensagem_confirmacao', e.target.value)}
                   rows={2}
                   className="bg-background"
                 />
@@ -139,8 +183,8 @@ export const ConfigEmailTemplate = () => {
               <div>
                 <Label className="text-xs text-muted-foreground">Título da seção de detalhes</Label>
                 <Input
-                  value={activeTab === 'ingresso' ? ticketConfig.titulo_detalhes : inscricaoConfig.titulo_detalhes}
-                  onChange={e => activeTab === 'ingresso' ? updateTicketField('titulo_detalhes', e.target.value) : updateInscricaoField('titulo_detalhes', e.target.value)}
+                  value={activeTab === 'ingresso' ? ticketConfig.titulo_detalhes : activeTab === 'inscricao' ? inscricaoConfig.titulo_detalhes : pendingConfig.titulo_detalhes}
+                  onChange={e => activeTab === 'ingresso' ? updateTicketField('titulo_detalhes', e.target.value) : activeTab === 'inscricao' ? updateInscricaoField('titulo_detalhes', e.target.value) : updatePendingField('titulo_detalhes', e.target.value)}
                   className="bg-background"
                 />
               </div>
@@ -159,16 +203,16 @@ export const ConfigEmailTemplate = () => {
               <div>
                 <Label className="text-xs text-muted-foreground">Rodapé - Evento</Label>
                 <Input
-                  value={activeTab === 'ingresso' ? ticketConfig.rodape_evento : inscricaoConfig.rodape_evento}
-                  onChange={e => activeTab === 'ingresso' ? updateTicketField('rodape_evento', e.target.value) : updateInscricaoField('rodape_evento', e.target.value)}
+                  value={activeTab === 'ingresso' ? ticketConfig.rodape_evento : activeTab === 'inscricao' ? inscricaoConfig.rodape_evento : pendingConfig.rodape_evento}
+                  onChange={e => activeTab === 'ingresso' ? updateTicketField('rodape_evento', e.target.value) : activeTab === 'inscricao' ? updateInscricaoField('rodape_evento', e.target.value) : updatePendingField('rodape_evento', e.target.value)}
                   className="bg-background"
                 />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Rodapé - Local</Label>
                 <Input
-                  value={activeTab === 'ingresso' ? ticketConfig.rodape_local : inscricaoConfig.rodape_local}
-                  onChange={e => activeTab === 'ingresso' ? updateTicketField('rodape_local', e.target.value) : updateInscricaoField('rodape_local', e.target.value)}
+                  value={activeTab === 'ingresso' ? ticketConfig.rodape_local : activeTab === 'inscricao' ? inscricaoConfig.rodape_local : pendingConfig.rodape_local}
+                  onChange={e => activeTab === 'ingresso' ? updateTicketField('rodape_local', e.target.value) : activeTab === 'inscricao' ? updateInscricaoField('rodape_local', e.target.value) : updatePendingField('rodape_local', e.target.value)}
                   className="bg-background"
                 />
               </div>
@@ -192,13 +236,13 @@ export const ConfigEmailTemplate = () => {
                   <div className="flex items-center gap-2 mt-1">
                     <input
                       type="color"
-                      value={(activeTab === 'ingresso' ? ticketConfig : inscricaoConfig)[key]}
-                      onChange={e => activeTab === 'ingresso' ? updateTicketField(key as keyof TicketTemplateConfig, e.target.value) : updateInscricaoField(key as keyof InscricaoTemplateConfig, e.target.value)}
+                      value={(activeTab === 'ingresso' ? ticketConfig : activeTab === 'inscricao' ? inscricaoConfig : pendingConfig)[key]}
+                      onChange={e => activeTab === 'ingresso' ? updateTicketField(key as keyof TicketTemplateConfig, e.target.value) : activeTab === 'inscricao' ? updateInscricaoField(key as keyof InscricaoTemplateConfig, e.target.value) : updatePendingField(key as keyof InscricaoTemplateConfig, e.target.value)}
                       className="w-10 h-10 rounded border border-border cursor-pointer"
                     />
                     <Input
-                      value={(activeTab === 'ingresso' ? ticketConfig : inscricaoConfig)[key]}
-                      onChange={e => activeTab === 'ingresso' ? updateTicketField(key as keyof TicketTemplateConfig, e.target.value) : updateInscricaoField(key as keyof InscricaoTemplateConfig, e.target.value)}
+                      value={(activeTab === 'ingresso' ? ticketConfig : activeTab === 'inscricao' ? inscricaoConfig : pendingConfig)[key]}
+                      onChange={e => activeTab === 'ingresso' ? updateTicketField(key as keyof TicketTemplateConfig, e.target.value) : activeTab === 'inscricao' ? updateInscricaoField(key as keyof InscricaoTemplateConfig, e.target.value) : updatePendingField(key as keyof InscricaoTemplateConfig, e.target.value)}
                       className="bg-background text-xs font-mono"
                     />
                   </div>
@@ -242,7 +286,7 @@ export const ConfigEmailTemplate = () => {
                   modalidade="Solo"
                   nomeCoreografia="Noites do Oriente"
                   valorTotal={220}
-                  config={inscricaoConfig}
+                  config={activeTab === 'inscricao' ? inscricaoConfig : pendingConfig}
                 />
               )}
             </div>

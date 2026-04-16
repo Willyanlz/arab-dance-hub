@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
+import { isValidCpf, isValidEmail, isValidPhoneBR, maskCpf, normalizePhoneBR } from '@/lib/inputValidation';
 
 const Profile = () => {
   const { user, loading: authLoading } = useAuth();
@@ -49,6 +50,22 @@ const Profile = () => {
     setSaving(true);
 
     try {
+      if (cpf && !isValidCpf(cpf)) {
+        toast({ title: 'CPF inválido', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+      if (telefone && !isValidPhoneBR(telefone)) {
+        toast({ title: 'WhatsApp inválido', description: 'Use DDD + número (ex: 16999999999).', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+      if (email && !isValidEmail(email)) {
+        toast({ title: 'E-mail inválido', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+
       const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
@@ -104,11 +121,11 @@ const Profile = () => {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label className="font-sans">CPF</Label>
-                <Input value={cpf} onChange={(event) => setCpf(event.target.value)} />
+                <Input value={cpf} onChange={(event) => setCpf(maskCpf(event.target.value))} placeholder="000.000.000-00" />
               </div>
               <div className="space-y-1">
                 <Label className="font-sans">WhatsApp</Label>
-                <Input value={telefone} onChange={(event) => setTelefone(event.target.value)} />
+                <Input value={telefone} onChange={(event) => setTelefone(normalizePhoneBR(event.target.value))} placeholder="16999999999" />
               </div>
             </div>
             <div className="space-y-1">

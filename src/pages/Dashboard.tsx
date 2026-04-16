@@ -8,6 +8,11 @@ import { Badge } from '@/components/ui/badge';
 import { LogOut, Plus, User, Ticket } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 import { QRCodeSVG } from 'qrcode.react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/hooks/use-toast';
+import { isValidCpf, isValidEmail, isValidPhoneBR, maskCpf, normalizePhoneBR } from '@/lib/inputValidation';
 
 type Inscricao = Database['public']['Tables']['inscricoes']['Row'];
 type IngressoVendido = Database['public']['Tables']['ingressos_vendidos']['Row'] & { tipos_ingresso?: { nome: string } };
@@ -25,6 +30,12 @@ const Dashboard = () => {
   const [inscricoes, setInscricoes] = useState<Inscricao[]>([]);
   const [ingressos, setIngressos] = useState<IngressoVendido[]>([]);
   const [profile, setProfile] = useState<any>(null);
+  const [adminModal, setAdminModal] = useState<'none' | 'inscricao' | 'ingresso'>('none');
+  const [adminPessoa, setAdminPessoa] = useState({ nome: '', cpf: '', email: '', whatsapp: '' });
+  const [adminTipoInscricao, setAdminTipoInscricao] = useState<'competicao' | 'mostra' | 'workshop'>('competicao');
+  const [adminIngressoTipoId, setAdminIngressoTipoId] = useState<string>('');
+  const [tiposIngresso, setTiposIngresso] = useState<{ id: string; nome: string }[]>([]);
+  const [adminQtdIngresso, setAdminQtdIngresso] = useState(1);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/login');
@@ -47,11 +58,110 @@ const Dashboard = () => {
         }));
         setIngressos(merged as any);
       }
+      if (tiposData) setTiposIngresso(tiposData as any);
     });
     supabase.from('profiles').select('*').eq('user_id', user.id).single().then(({ data }) => {
       if (data) setProfile(data);
     });
   }, [user]);
+
+  const adminCreateInscricao = async () => {
+    if (!user) return;
+    if (!adminPessoa.nome.trim()) {
+      toast({ title: 'Informe o nome', variant: 'destructive' });
+      return;
+    }
+    if (!isValidCpf(adminPessoa.cpf)) {
+      toast({ title: 'CPF inválido', variant: 'destructive' });
+      return;
+    }
+    if (!isValidEmail(adminPessoa.email)) {
+      toast({ title: 'E-mail inválido', variant: 'destructive' });
+      return;
+    }
+    if (!isValidPhoneBR(adminPessoa.whatsapp)) {
+      toast({ title: 'WhatsApp inválido', description: 'Use DDD + número (ex: 16999999999).', variant: 'destructive' });
+      return;
+    }
+
+    const { error } = await supabase.from('inscricoes').insert({
+      user_id: user.id,
+      tipo_inscricao: adminTipoInscricao,
+      categoria: 'solo',
+      modalidade: 'ADMIN',
+      nome_coreografia: `Inscrição (admin) - ${adminPessoa.nome}`,
+      status: 'pendente',
+      valor_total: 0,
+      valor_final: 0,
+      desconto_percentual: 0,
+      num_integrantes: 1,
+      created_by_admin_id: user.id,
+      contato_nome: adminPessoa.nome.trim(),
+      contato_cpf: adminPessoa.cpf,
+      contato_email: adminPessoa.email.trim(),
+      contato_telefone: adminPessoa.whatsapp,
+      dados_adicionais: { criado_no_dashboard: true },
+    } as any);
+
+    if (error) {
+      toast({ title: 'Erro ao criar', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    toast({ title: '✅ Inscrição criada (sem pagamento)' });
+    setAdminModal('none');
+    setAdminPessoa({ nome: '', cpf: '', email: '', whatsapp: '' });
+    supabase.from('inscricoes').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).then(({ data }) => {
+      if (data) setInscricoes(data);
+    });
+  };
+
+  const adminCreateIngresso = async () => {
+    if (!user) return;
+    if (!adminIngressoTipoId) {
+      toast({ title: 'Selecione o tipo de ingresso', variant: 'destructive' });
+      return;
+    }
+    if (!adminPessoa.nome.trim()) {
+      toast({ title: 'Informe o nome', variant: 'destructive' });
+      return;
+    }
+    if (!isValidCpf(adminPessoa.cpf)) {
+      toast({ title: 'CPF inválido', variant: 'destructive' });
+      return;
+    }
+    if (!isValidEmail(adminPessoa.email)) {
+      toast({ title: 'E-mail inválido', variant: 'destructive' });
+      return;
+    }
+    if (adminPessoa.whatsapp && !isValidPhoneBR(adminPessoa.whatsapp)) {
+      toast({ title: 'WhatsApp inválido', description: 'Use DDD + número (ex: 16999999999).', variant: 'destructive' });
+      return;
+    }
+
+    const { error } = await supabase.from('ingressos_vendidos').insert({
+      tipo_ingresso_id: adminIngressoTipoId,
+      user_id: user.id,
+      nome_comprador: adminPessoa.nome.trim(),
+      cpf: adminPessoa.cpf,
+      email: adminPessoa.email.trim(),
+      telefone: adminPessoa.whatsapp || null,
+      quantidade: Math.max(1, adminQtdIngresso),
+      valor_total: 0,
+      status: 'pendente',
+      metodo_pagamento: 'dinheiro',
+      created_by_admin_id: user.id,
+    } as any);
+
+    if (error) {
+      toast({ title: 'Erro ao criar', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    toast({ title: '✅ Ingresso criado (sem pagamento)' });
+    setAdminModal('none');
+    setAdminPessoa({ nome: '', cpf: '', email: '', whatsapp: '' });
+  };
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Carregando...</p></div>;
 
@@ -78,9 +188,16 @@ const Dashboard = () => {
       <main className="max-w-4xl mx-auto py-8 px-4">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-serif font-bold text-foreground">Minhas Inscrições</h1>
-          <Button asChild className="bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">
-            <Link to="/inscricao"><Plus className="w-4 h-4 mr-2" /> Nova Inscrição</Link>
-          </Button>
+          <div className="flex gap-2">
+            {isAdmin && (
+              <Button variant="outline" className="border-border text-foreground font-sans" onClick={() => setAdminModal('inscricao')}>
+                Inscrever outra pessoa
+              </Button>
+            )}
+            <Button asChild className="bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">
+              <Link to="/inscricao"><Plus className="w-4 h-4 mr-2" /> Nova Inscrição</Link>
+            </Button>
+          </div>
         </div>
 
         {inscricoes.length === 0 ? (
@@ -116,9 +233,16 @@ const Dashboard = () => {
 
         <div className="flex justify-between items-center mt-12 mb-8">
           <h2 className="text-2xl font-serif font-bold text-foreground">Meus Ingressos</h2>
-          <Button asChild variant="outline" className="border-border text-foreground font-sans">
-            <Link to="/ingressos"><Ticket className="w-4 h-4 mr-2" /> Comprar Ingressos</Link>
-          </Button>
+          <div className="flex gap-2">
+            {isAdmin && (
+              <Button variant="outline" className="border-border text-foreground font-sans" onClick={() => setAdminModal('ingresso')}>
+                Comprar ingresso para outra pessoa
+              </Button>
+            )}
+            <Button asChild variant="outline" className="border-border text-foreground font-sans">
+              <Link to="/ingressos"><Ticket className="w-4 h-4 mr-2" /> Comprar Ingressos</Link>
+            </Button>
+          </div>
         </div>
 
         {ingressos.length === 0 ? (
@@ -172,6 +296,83 @@ const Dashboard = () => {
           </div>
         )}
       </main>
+
+      {adminModal !== 'none' && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <Card className="bg-card border-border w-full max-w-lg">
+            <CardHeader>
+              <CardTitle className="font-serif text-foreground">
+                {adminModal === 'inscricao' ? 'Inscrever outra pessoa (sem pagamento)' : 'Comprar ingresso para outra pessoa (sem pagamento)'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {adminModal === 'inscricao' && (
+                <div>
+                  <Label className="text-foreground font-sans">Tipo de inscrição</Label>
+                  <Select value={adminTipoInscricao} onValueChange={(v) => setAdminTipoInscricao(v as any)}>
+                    <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="competicao">Competição</SelectItem>
+                      <SelectItem value="mostra">Mostra</SelectItem>
+                      <SelectItem value="workshop">Workshop</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {adminModal === 'ingresso' && (
+                <div>
+                  <Label className="text-foreground font-sans">Tipo de ingresso</Label>
+                  <select
+                    value={adminIngressoTipoId}
+                    onChange={(e) => setAdminIngressoTipoId(e.target.value)}
+                    className="w-full h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  >
+                    <option value="">Selecione...</option>
+                    {tiposIngresso.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <Label className="text-foreground font-sans">Nome *</Label>
+                <Input value={adminPessoa.nome} onChange={(e) => setAdminPessoa(p => ({ ...p, nome: e.target.value }))} className="bg-background border-border text-foreground" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-foreground font-sans">CPF *</Label>
+                  <Input value={adminPessoa.cpf} onChange={(e) => setAdminPessoa(p => ({ ...p, cpf: maskCpf(e.target.value) }))} placeholder="000.000.000-00" className="bg-background border-border text-foreground" />
+                </div>
+                <div>
+                  <Label className="text-foreground font-sans">WhatsApp *</Label>
+                  <Input value={adminPessoa.whatsapp} onChange={(e) => setAdminPessoa(p => ({ ...p, whatsapp: normalizePhoneBR(e.target.value) }))} placeholder="16999999999" className="bg-background border-border text-foreground" />
+                </div>
+              </div>
+              <div>
+                <Label className="text-foreground font-sans">E-mail *</Label>
+                <Input type="email" value={adminPessoa.email} onChange={(e) => setAdminPessoa(p => ({ ...p, email: e.target.value }))} className="bg-background border-border text-foreground" />
+              </div>
+
+              {adminModal === 'ingresso' && (
+                <div>
+                  <Label className="text-foreground font-sans">Quantidade</Label>
+                  <Input type="number" value={adminQtdIngresso} onChange={(e) => setAdminQtdIngresso(Math.max(1, Number(e.target.value)))} className="bg-background border-border text-foreground" />
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" onClick={() => setAdminModal('none')} className="flex-1 border-border text-foreground font-sans">Cancelar</Button>
+                <Button
+                  onClick={adminModal === 'inscricao' ? adminCreateInscricao : adminCreateIngresso}
+                  className="flex-1 bg-gradient-gold text-primary-foreground font-sans"
+                >
+                  Confirmar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

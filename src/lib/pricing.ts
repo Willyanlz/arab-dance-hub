@@ -39,7 +39,10 @@ export type TipoCompraWorkshop = 'pacote_completo' | '1_aula' | '2_aulas' | '3_a
 
 export function getLoteAtual<T extends LoteBase>(lotes: T[]): T | null {
   const today = new Date().toISOString().split('T')[0];
-  return lotes.find((l) => today >= l.data_inicio && today <= l.data_fim) ?? null;
+  const valid = lotes
+    .filter((l) => (l.ativo ?? true) && today >= l.data_inicio && today <= l.data_fim)
+    .sort((a, b) => (a.numero || 0) - (b.numero || 0));
+  return valid[0] ?? null;
 }
 
 export function isEventDay(): boolean {

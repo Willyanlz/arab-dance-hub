@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, MapPin, Trophy, Music, Users, Star, Ticket, Camera, Scissors, CircleDot, Shield } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
-import { PREMIACOES as DEFAULT_PREMIACOES, PONTUACAO as DEFAULT_PONTUACAO, MODALIDADES as DEFAULT_MODALIDADES } from '@/lib/constants';
+
 
 const btnPrimary = "bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans text-lg px-8 py-6 rounded-xl shimmer";
 const btnOutline = "border-gold text-gold-light hover:bg-gold/10 font-sans text-lg px-8 py-6 rounded-xl";
@@ -22,9 +22,9 @@ const ICON_MAP: Record<string, any> = { camera: Camera, scissors: Scissors, circ
 
 const Index = () => {
   const [config, setConfig] = useState<Record<string, any>>({});
-  const [modalidades, setModalidades] = useState<string[]>([...DEFAULT_MODALIDADES]);
-  const [premiacoes, setPremiacoes] = useState(DEFAULT_PREMIACOES);
-  const [pontuacao, setPontuacao] = useState<Record<string, number>>(DEFAULT_PONTUACAO);
+  const [modalidades, setModalidades] = useState<string[]>([]);
+  const [premiacoes, setPremiacoes] = useState<{ categoria: string; valor: string }[]>([]);
+  const [pontuacao, setPontuacao] = useState<Record<string, number>>({});
   const [stands, setStands] = useState<StandItem[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -43,7 +43,7 @@ const Index = () => {
         // Only override defaults if data exists in config
         if (Array.isArray(map.premiacoes) && map.premiacoes.length > 0) {
           setPremiacoes(map.premiacoes);
-        } else if (map.hasOwnProperty('premiacoes')) {
+        } else if (Object.prototype.hasOwnProperty.call(map, 'premiacoes')) {
           setPremiacoes([]); // Explicitly empty if key exists but is empty
         }
 
@@ -51,7 +51,7 @@ const Index = () => {
           const obj: Record<string, number> = {};
           map.pontuacao.forEach((p: any) => { obj[p.criterio] = p.percentual; });
           setPontuacao(obj);
-        } else if (map.hasOwnProperty('pontuacao')) {
+        } else if (Object.prototype.hasOwnProperty.call(map, 'pontuacao')) {
           setPontuacao({}); // Explicitly empty
         }
 
@@ -105,6 +105,16 @@ const Index = () => {
   const hasRegras = loaded && !!regrasEProibicoes.trim();
   const hasStands = loaded && stands.length > 0;
 
+  // Info card visibility — only show if field has content
+  const hasEventoData = !!eventoData.trim();
+  const hasEventoLocal = !!eventoLocal.trim();
+
+  const infoCards = [
+    hasEventoData && { icon: Calendar, title: 'Quando', desc: `${eventoData}${eventoHorario ? ` • ${eventoHorario}` : ''}` },
+    hasEventoLocal && { icon: MapPin, title: 'Onde', desc: eventoLocal },
+    { icon: Users, title: 'Categorias', desc: 'Solo, Dupla/Trio e Grupo' },
+  ].filter(Boolean) as { icon: any; title: string; desc: string }[];
+
   return (
     <div className="min-h-screen bg-background">
       {/* Hero */}
@@ -123,9 +133,11 @@ const Index = () => {
           <p className="text-xl md:text-2xl font-serif text-gold-light/90 mb-2">
             {eventoSubtitulo}
           </p>
-          <p className="text-muted-foreground text-base mb-8 max-w-2xl mx-auto font-sans text-sand-dark">
-            {eventoDescricao}
-          </p>
+          {eventoDescricao && (
+            <p className="text-muted-foreground text-base mb-8 max-w-2xl mx-auto font-sans text-sand-dark">
+              {eventoDescricao}
+            </p>
+          )}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className={btnPrimary}>
               <Link to="/inscricao">Inscreva-se Agora</Link>
@@ -147,12 +159,8 @@ const Index = () => {
         <h2 className="text-3xl md:text-4xl font-serif font-bold text-center mb-12 text-foreground">
           Sobre o Festival
         </h2>
-        <div className="grid md:grid-cols-3 gap-6">
-          {[
-            { icon: Calendar, title: 'Quando', desc: `${eventoData}${eventoHorario ? ` • ${eventoHorario}` : ''}` },
-            { icon: MapPin, title: 'Onde', desc: eventoLocal },
-            { icon: Users, title: 'Categorias', desc: 'Solo, Dupla/Trio e Grupo' },
-          ].map(({ icon: Icon, title, desc }) => (
+        <div className={`grid gap-6 ${infoCards.length === 1 ? 'max-w-xs mx-auto' : infoCards.length === 2 ? 'md:grid-cols-2 max-w-2xl mx-auto' : 'md:grid-cols-3'}`}>
+          {infoCards.map(({ icon: Icon, title, desc }) => (
             <Card key={title} className="bg-card border-border hover:border-gold/50 transition-colors">
               <CardContent className="p-6 text-center">
                 <Icon className="w-10 h-10 mx-auto mb-4 text-primary" />
@@ -312,7 +320,9 @@ const Index = () => {
       <footer className="py-8 px-4 bg-card border-t border-border">
         <div className="max-w-6xl mx-auto text-center text-muted-foreground text-sm font-sans">
           <p>© 2026 {eventoNome} - {eventoSubtitulo}. Todos os direitos reservados.</p>
-          <p className="mt-1">Elaine de Fátima da Silva — CNPJ 196914770001-99</p>
+          {typeof config.rodape_texto === 'string' && config.rodape_texto.trim() && (
+            <p className="mt-1">{config.rodape_texto}</p>
+          )}
         </div>
       </footer>
     </div>

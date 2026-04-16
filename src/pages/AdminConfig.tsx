@@ -90,7 +90,7 @@ const AdminConfig = () => {
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden absolute left-4 right-4 z-[40] bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-2xl p-2 animate-in fade-in zoom-in-95 duration-200">
+          <div className="md:hidden fixed inset-0 w-full h-full z-[9999] bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-2xl p-2 animate-in fade-in zoom-in-95 duration-200">
             <div className="grid grid-cols-1 gap-1">
               {tabs.map((tab) => (
                 <button

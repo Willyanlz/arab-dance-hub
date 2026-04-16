@@ -21,7 +21,8 @@ import {
 import { ArrowLeft, Plus, Trash2, Trophy, Star, BookOpen, ChevronRight } from 'lucide-react';
 import { FormFieldConfig } from './admin-config/components/FormBuilder';
 import { getSystemOptions, type SystemOptionItem } from '@/lib/systemOptions';
-import { initializePaymentGateway } from '@/lib/paymentGateway';
+import { isValidCpf, isValidEmail, isValidPhoneBR, maskCpf, normalizePhoneBR } from '@/lib/inputValidation';
+// import { initializePaymentGateway } from '@/lib/paymentGateway';
 
 interface Participante {
   nome: string;
@@ -107,9 +108,10 @@ const Inscricao = () => {
   const [participantes, setParticipantes] = useState<Participante[]>([]);
   const [extraHarem, setExtraHarem] = useState(false);
   const [comoSoube, setComoSoube] = useState('');
-  const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'cartao'>('pix');
+  const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'dinheiro' | 'cartao'>('pix');
   const [termosAceitos, setTermosAceitos] = useState(false);
   const [observacoes, setObservacoes] = useState('');
+  const [pixInfo, setPixInfo] = useState({ chave: 'fadda@festival.com.br', banco: 'Nubank' });
 
   // ── Competição fields ─────────────────────────────────────────────────────
   const [modalidade, setModalidade] = useState('');
@@ -216,6 +218,9 @@ const Inscricao = () => {
       const map: Record<string, any> = {};
       configData.forEach((c: any) => { map[c.chave] = c.valor; });
       setComoSoubeOpcoes(Array.isArray(map.como_soube_opcoes) ? map.como_soube_opcoes : []);
+      if (map.pix_chave) setPixInfo(prev => ({ ...prev, chave: String(map.pix_chave).replace(/"/g, '') }));
+      if (map.pix_banco) setPixInfo(prev => ({ ...prev, banco: String(map.pix_banco).replace(/"/g, '') }));
+      if (map.evento_pix && !map.pix_chave) setPixInfo(prev => ({ ...prev, chave: String(map.evento_pix).replace(/"/g, '') }));
       setInscricoesAbertas({
         competicao: map.inscricoes_abertas_competicao !== false,
         mostra: map.inscricoes_abertas_mostra !== false,
@@ -261,6 +266,28 @@ const Inscricao = () => {
     if (!user) return;
     setLoading(true);
     try {
+      if (!isValidCpf(cpf)) {
+        toast({ title: 'CPF inválido', description: 'Informe um CPF válido.', variant: 'destructive' });
+        setLoading(false);
+        return;
+      }
+      if (!isValidPhoneBR(telefone)) {
+        toast({ title: 'Telefone inválido', description: 'Informe DDD + número (ex: 16999999999).', variant: 'destructive' });
+        setLoading(false);
+        return;
+      }
+      const invalidParticipanteCpf = participantes.find(p => !p.nome?.trim() || !isValidCpf(p.cpf));
+      if (invalidParticipanteCpf) {
+        toast({ title: 'Participantes inválidos', description: 'Cada participante precisa ter nome e CPF válido.', variant: 'destructive' });
+        setLoading(false);
+        return;
+      }
+      const invalidParticipanteEmail = participantes.find(p => p.email && !isValidEmail(p.email));
+      if (invalidParticipanteEmail) {
+        toast({ title: 'E-mail inválido', description: 'Verifique o e-mail de um dos participantes.', variant: 'destructive' });
+        setLoading(false);
+        return;
+      }
       // ── "Verifica no envio" ────────────────────────────────────────────────
       const today = new Date().toISOString().split('T')[0];
       let currentLoteValid = true;
@@ -274,10 +301,10 @@ const Inscricao = () => {
       }
 
       if (!currentLoteValid) {
-        toast({ 
-          title: 'Lote Expirado', 
-          description: 'O lote selecionado não é mais válido para a data de hoje. Por favor, recarregue para obter os novos preços.', 
-          variant: 'destructive' 
+        toast({
+          title: 'Lote Expirado',
+          description: 'O lote selecionado não é mais válido para a data de hoje. Por favor, recarregue para obter os novos preços.',
+          variant: 'destructive'
         });
         setLoading(false);
         load(); // Refresh data
@@ -360,48 +387,53 @@ const Inscricao = () => {
         );
       }
 
-      const isAutomaticPayment = metodoPagamento === 'cartao';
-
       // Pagamento
       if (insc) {
-        const paymentGateway = await initializePaymentGateway({
-          metodo: metodoPagamento,
-          valor: valorFinal,
-          descricao: `Inscrição ${tipoInscricao}`,
-          referenciaId: insc.id,
-        });
-
-        await supabase.from('pagamentos').insert({
+        const { data: pagamento, error: pagamentoError } = await supabase.from('pagamentos').insert({
           inscricao_id: insc.id,
           metodo: metodoPagamento,
           valor: valorFinal,
-          status: isAutomaticPayment ? 'confirmado' : 'pendente',
-        } as any);
+          status: 'pendente',
+        } as any).select().single();
+        if (pagamentoError) throw pagamentoError;
 
-        if (isAutomaticPayment) {
-          await supabase.from('inscricoes').update({ status: 'confirmado' }).eq('id', insc.id);
-          supabase.functions.invoke('send-inscricao-confirmation', {
+        const email = user.email || '';
+        const nome = user.user_metadata?.nome || user.email || 'Participante';
+
+        if (metodoPagamento === 'cartao') {
+          const { data: mpData, error: mpErr } = await supabase.functions.invoke('create-mp-checkout', {
             body: {
-              email: user.email,
-              nome: user.user_metadata?.nome || user.email || 'Participante',
-              tipo_inscricao: tipoInscricao,
-              modalidade: inscData.modalidade,
-              nome_coreografia: inscData.nome_coreografia,
-              valor_final: valorFinal,
+              inscricao_id: insc.id,
+              pagamento_id: pagamento?.id,
+              valor: valorFinal,
+              descricao: `Inscrição ${tipoInscricao}`,
+              email,
+              nome,
             },
-          }).catch(console.error);
+          });
+          if (mpErr) throw mpErr;
+          if (mpData?.init_point) {
+            window.location.href = mpData.init_point;
+            return;
+          }
+          throw new Error('Não foi possível iniciar o checkout do Mercado Pago.');
         }
 
-        if (paymentGateway.instructions) {
-          toast({ title: 'Pagamento inicializado', description: paymentGateway.instructions });
-        }
+        supabase.functions.invoke('send-pending-payment', {
+          body: {
+            email,
+            nome,
+            contexto: 'inscricao',
+            descricao: `Inscrição ${tipoInscricao}`,
+            valor: valorFinal,
+            metodo: metodoPagamento,
+          }
+        }).catch(console.error);
       }
 
       toast({
         title: '✅ Inscrição realizada!',
-        description: isAutomaticPayment
-          ? 'Pagamento confirmado automaticamente e e-mail enviado.'
-          : 'Aguarde a confirmação manual do pagamento.',
+        description: 'Aguardando confirmação do pagamento.',
       });
       navigate('/dashboard');
     } catch (err: any) {
@@ -809,11 +841,11 @@ const Inscricao = () => {
             <CardContent className="space-y-4">
               <div>
                 <Label className="text-foreground font-sans">CPF *</Label>
-                <Input value={cpf} onChange={e => setCpf(e.target.value)} placeholder="000.000.000-00" className="bg-background border-border text-foreground" />
+                <Input value={cpf} onChange={e => setCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" className="bg-background border-border text-foreground" />
               </div>
               <div>
                 <Label className="text-foreground font-sans">Telefone / WhatsApp *</Label>
-                <Input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="(16) 99999-9999" className="bg-background border-border text-foreground" />
+                <Input value={telefone} onChange={e => setTelefone(normalizePhoneBR(e.target.value))} placeholder="16999999999" className="bg-background border-border text-foreground" />
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox id="jalilete" checked={isJalilete} onCheckedChange={v => setIsJalilete(!!v)} />
@@ -825,7 +857,11 @@ const Inscricao = () => {
               </div>
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" onClick={() => { setStep(0); setTipoInscricao(null); }} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
-                <Button onClick={() => { if (!cpf || !telefone) { toast({ title: 'Preencha CPF e telefone', variant: 'destructive' }); return; } setStep(2); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
+                <Button onClick={() => {
+                  if (!isValidCpf(cpf)) { toast({ title: 'CPF inválido', variant: 'destructive' }); return; }
+                  if (!isValidPhoneBR(telefone)) { toast({ title: 'Telefone inválido', description: 'Use DDD + número (ex: 16999999999).', variant: 'destructive' }); return; }
+                  setStep(2);
+                }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
               </div>
             </CardContent>
           </Card>
@@ -853,9 +889,9 @@ const Inscricao = () => {
                         <Button variant="ghost" size="icon" onClick={() => removeParticipante(i)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                       </div>
                       <Input placeholder="Nome completo *" value={p.nome} onChange={e => updateParticipante(i, 'nome', e.target.value)} className="bg-background border-border text-foreground" />
-                      <Input placeholder="CPF *" value={p.cpf} onChange={e => updateParticipante(i, 'cpf', e.target.value)} className="bg-background border-border text-foreground" />
+                      <Input placeholder="CPF *" value={p.cpf} onChange={e => updateParticipante(i, 'cpf', maskCpf(e.target.value))} className="bg-background border-border text-foreground" />
                       <Input placeholder="E-mail" value={p.email || ''} onChange={e => updateParticipante(i, 'email', e.target.value)} className="bg-background border-border text-foreground" />
-                      <Input placeholder="Telefone" value={p.telefone || ''} onChange={e => updateParticipante(i, 'telefone', e.target.value)} className="bg-background border-border text-foreground" />
+                      <Input placeholder="Telefone" value={p.telefone || ''} onChange={e => updateParticipante(i, 'telefone', normalizePhoneBR(e.target.value))} className="bg-background border-border text-foreground" />
                     </div>
                   ))}
                   <Button variant="outline" onClick={addParticipante} className="w-full border-border text-foreground font-sans">
@@ -915,16 +951,23 @@ const Inscricao = () => {
                 <Select value={metodoPagamento} onValueChange={v => setMetodoPagamento(v as any)}>
                   <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pix">PIX</SelectItem>
-                    <SelectItem value="cartao">Mercado Pago (cartão)</SelectItem>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="cartao">Mercado Pago (Checkout Pro)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               {metodoPagamento === 'pix' && (
                 <div className="p-4 bg-muted rounded-lg text-center font-sans">
                   <p className="text-sm text-muted-foreground mb-1">Chave PIX:</p>
-                  <p className="font-bold text-foreground text-lg">fadda@festival.com.br</p>
+                  <p className="font-bold text-foreground text-lg">{pixInfo.chave}</p>
                   <p className="text-xs text-muted-foreground mt-1">Envie o comprovante para confirmação</p>
+                </div>
+              )}
+              {metodoPagamento === 'dinheiro' && (
+                <div className="p-4 bg-muted rounded-lg text-center font-sans">
+                  <p className="text-sm text-muted-foreground mb-1">Pagamento em dinheiro</p>
+                  <p className="text-xs text-muted-foreground mt-1">A confirmação será feita manualmente pela organização.</p>
                 </div>
               )}
 
@@ -1049,15 +1092,22 @@ const Inscricao = () => {
                   <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pix">PIX</SelectItem>
-                    <SelectItem value="cartao">Mercado Pago (cartão)</SelectItem>
+                    <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                    <SelectItem value="cartao">Mercado Pago (Checkout Pro)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               {metodoPagamento === 'pix' && (
                 <div className="p-4 bg-muted rounded-lg text-center font-sans">
                   <p className="text-sm text-muted-foreground mb-1">Chave PIX:</p>
-                  <p className="font-bold text-foreground text-lg">fadda@festival.com.br</p>
+                  <p className="font-bold text-foreground text-lg">{pixInfo.chave}</p>
                   <p className="text-xs text-muted-foreground mt-1">Envie o comprovante para confirmação</p>
+                </div>
+              )}
+              {metodoPagamento === 'dinheiro' && (
+                <div className="p-4 bg-muted rounded-lg text-center font-sans">
+                  <p className="text-sm text-muted-foreground mb-1">Pagamento em dinheiro</p>
+                  <p className="text-xs text-muted-foreground mt-1">A confirmação será feita manualmente pela organização.</p>
                 </div>
               )}
 

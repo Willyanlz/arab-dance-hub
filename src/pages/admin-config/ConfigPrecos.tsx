@@ -4,20 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
-import { Trophy, Star, BookOpen, Ticket, Plus, Trash2 } from 'lucide-react';
+import { Trophy, Star, BookOpen, Plus, Trash2 } from 'lucide-react';
 
 export const ConfigPrecos = () => {
   const [loading, setLoading] = useState(true);
   const [lotesComp, setLotesComp] = useState<any[]>([]);
   const [lotesMostra, setLotesMostra] = useState<any[]>([]);
   const [lotesWorkshop, setLotesWorkshop] = useState<any[]>([]);
-  const [lotesIngresso, setLotesIngresso] = useState<any[]>([]);
 
   // New lote form states
   const [novoLoteComp, setNovoLoteComp] = useState({ numero: 1, nome: '', data_inicio: '', data_fim: '', preco_solo: 0, preco_dupla_trio: 0, preco_grupo_por_integrante: 0 });
   const [novoLoteMostra, setNovoLoteMostra] = useState({ numero: 1, nome: '', data_inicio: '', data_fim: '', preco_solo: 0, preco_dupla_trio: 0, preco_grupo_por_integrante: 0 });
   const [novoLoteWorkshop, setNovoLoteWorkshop] = useState({ numero: 1, nome: '', data_inicio: '', data_fim: '', preco_pacote_completo: 0, preco_1_aula: 0, preco_2_aulas: 0, preco_3_aulas: 0, preco_4_aulas: 0, preco_5_aulas: 0 });
-  const [novoLoteIngresso, setNovoLoteIngresso] = useState({ numero: 1, nome: '', data_inicio: '', data_fim: '' });
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -25,13 +23,11 @@ export const ConfigPrecos = () => {
       supabase.from('lotes').select('*').order('numero'),
       (supabase.from('lotes_mostra') as any).select('*').order('numero'),
       (supabase.from('lotes_workshop') as any).select('*').order('numero'),
-      (supabase.from('lotes_ingresso') as any).select('*').order('numero'),
     ]);
     
     setLotesComp(results[0].data || []);
     setLotesMostra(results[1].data || []);
     setLotesWorkshop(results[2].data || []);
-    setLotesIngresso(results[3].data || []);
     setLoading(false);
   }, []);
 
@@ -72,13 +68,6 @@ export const ConfigPrecos = () => {
     loadData();
   };
 
-  const createLoteIngresso = async () => {
-    if (!novoLoteIngresso.nome || !novoLoteIngresso.data_inicio) return;
-    await (supabase.from('lotes_ingresso') as any).insert(novoLoteIngresso);
-    toast({ title: '✅ Lote criado!' });
-    setNovoLoteIngresso({ numero: lotesIngresso.length + 1, nome: '', data_inicio: '', data_fim: '' });
-    loadData();
-  };
 
   if (loading) return <div className="p-8 text-center animate-pulse text-muted-foreground font-sans">Carregando lotes...</div>;
 
@@ -182,27 +171,7 @@ export const ConfigPrecos = () => {
         </CardContent>
       </Card>
 
-      {/* ── INGRESSO ── */}
-      <Card className="bg-card border-border">
-        <CardHeader><CardTitle className="font-serif text-foreground text-lg flex items-center gap-2"><Ticket className="w-5 h-5 text-primary" />Lotes — Ingressos Convidado</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            {lotesIngresso.map(l => (
-              <div key={l.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                <span className="text-foreground font-sans text-sm font-medium flex-1">{l.nome}</span>
-                <span className="text-xs text-muted-foreground font-sans">{l.data_inicio} → {l.data_fim}</span>
-                <Button variant="ghost" size="icon" onClick={() => deleteLote('lotes_ingresso', l.id)}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2">
-            <Input placeholder="Nome" value={novoLoteIngresso.nome} onChange={e => setNovoLoteIngresso({ ...novoLoteIngresso, nome: e.target.value })} />
-            <Input type="date" value={novoLoteIngresso.data_inicio} onChange={e => setNovoLoteIngresso({ ...novoLoteIngresso, data_inicio: e.target.value })} />
-            <Input type="date" value={novoLoteIngresso.data_fim} onChange={e => setNovoLoteIngresso({ ...novoLoteIngresso, data_fim: e.target.value })} />
-            <Button onClick={createLoteIngresso} className="bg-gradient-gold"><Plus className="w-4 h-4 mr-1" /> Criar</Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Lotes de ingressos foram movidos para Configurações → Ingressos */}
     </div>
   );
 };
