@@ -49,7 +49,8 @@ const UpdatePassword = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label className="text-foreground font-sans">Nova Senha</Label>
-              <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={4} className="bg-background border-border text-foreground" />
+              <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} className="bg-background border-border text-foreground" />
+              <p className="text-xs text-muted-foreground font-sans mt-1">Mínimo 6 caracteres</p>
             </div>
             <Button type="submit" disabled={loading} className="w-full bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">
               {loading ? 'Aguarde...' : 'Atualizar Senha'}

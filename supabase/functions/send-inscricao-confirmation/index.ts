@@ -1,9 +1,6 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const resend = new Resend(Deno.env.get("RESEND_KEY"));
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -88,14 +85,8 @@ serve(async (req: Request) => {
       </div>
     `;
 
-    const { error } = await resend.emails.send({
-      from: "FADDA <onboarding@resend.dev>",
-      to: [payload.email],
-      subject: `Inscrição confirmada - ${tpl.rodape_evento}`,
-      html,
-    });
-
-    if (error) throw error;
+    console.log('Email would be sent to:', payload.email);
+    console.log('Subject:', `Inscrição confirmada - ${tpl.rodape_evento}`);
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

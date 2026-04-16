@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import { ArrowLeft, Download, Check, Search, Eye, X, Edit2, Users, Trophy, Star, BookOpen, UserPlus, Ticket, DollarSign, QrCode, Menu } from 'lucide-react';
+import { exportToXlsx } from '@/lib/exportXlsx';
 
 const STATUS_COLORS: Record<string, string> = {
   pendente: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -41,6 +42,8 @@ const Admin = () => {
   const [filtroStatus, setFiltroStatus] = useState('all');
   const [filtroAno, setFiltroAno] = useState(new Date().getFullYear().toString());
   const [busca, setBusca] = useState('');
+  const [pagina, setPagina] = useState(1);
+  const ITEMS_POR_PAGINA = 25;
   const [loading, setLoading] = useState(true);
 
   // Ingressos stats
@@ -136,8 +139,8 @@ const Admin = () => {
   };
 
   const confirmarPagamento = async (id: string) => {
-    await supabase.from('inscricoes').update({ status: 'confirmado' }).eq('id', id);
-    await supabase.from('pagamentos').update({ status: 'confirmado' }).eq('inscricao_id', id);
+    await supabase.from('inscricoes').update({ status: 'confirmado' } as any).eq('id', id);
+    await supabase.from('pagamentos').update({ status: 'confirmado' } as any).eq('inscricao_id', id);
     const alvo = inscricoes.find((item) => item.id === id);
     if (alvo?.profiles?.email) {
       supabase.functions.invoke('send-inscricao-confirmation', {
@@ -156,7 +159,7 @@ const Admin = () => {
   };
 
   const cancelarInscricao = async (id: string) => {
-    await supabase.from('inscricoes').update({ status: 'cancelado' }).eq('id', id);
+    await supabase.from('inscricoes').update({ status: 'cancelado' } as any).eq('id', id);
     toast({ title: 'Inscrição cancelada', variant: 'destructive' });
     loadInscricoes();
     setDetailOpen(false);
@@ -166,11 +169,11 @@ const Admin = () => {
     if (!selected) return;
     setSaving(true);
     await supabase.from('inscricoes').update({ 
-      status: editStatus as any, 
+      status: editStatus, 
       observacoes: editObs,
       nome_coreografia: editCoreografia,
       modalidade: editModalidade
-    }).eq('id', selected.id);
+    } as any).eq('id', selected.id);
     toast({ title: '✅ Inscrição atualizada' });
     setEditMode(false);
     setSaving(false);
@@ -186,6 +189,9 @@ const Admin = () => {
     setEditMode(false);
     setDetailOpen(true);
   };
+
+  // Dynamic years from inscricoes data
+  const anosInscricoes = [...new Set(inscricoes.map(i => new Date(i.created_at).getFullYear()))].sort((a, b) => b - a);
 
   const filteredInscricoes = inscricoes.filter(i => {
     if (filtroTipo !== 'all' && i.tipo_inscricao !== filtroTipo) return false;
@@ -206,8 +212,8 @@ const Admin = () => {
     return true;
   });
 
-  const exportCSV = () => {
-    const headers = ['Tipo','Nome','Email','CPF','Telefone','Categoria','Modalidade','Coreografia','Status','Período','Valor Final','Lote','Como Soube','Data','Participantes (Nome|CPF)'];
+  const exportExcel = () => {
+    const headers = ['Tipo Inscrição','Nome Completo','E-mail','CPF','Telefone','Categoria','Modalidade','Nome da Coreografia','Status','Período','Valor Final (R$)','Lote','Como Soube','Data de Inscrição','Participantes (Nome | CPF)'];
     const rows = filteredInscricoes.map(i => [
       i.tipo_inscricao || '',
       i.profiles?.nome || '',
@@ -225,13 +231,7 @@ const Admin = () => {
       new Date(i.created_at).toLocaleDateString('pt-BR'),
       (i.participantes_lista || []).map((p: any) => `${p.nome}|${p.cpf || ''}`).join('; '),
     ]);
-    const csv = [headers, ...rows]
-      .map(r => r.map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'inscricoes_fadda.csv'; a.click();
+    exportToXlsx(headers, rows, `inscricoes_fadda_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   // Inscription stats
@@ -322,8 +322,8 @@ const Admin = () => {
             <Button asChild size="sm" className="bg-gradient-gold text-primary-foreground font-sans">
               <Link to="/inscricao"><UserPlus className="w-4 h-4 mr-1" /> Nova Inscrição</Link>
             </Button>
-            <Button onClick={exportCSV} variant="outline" size="sm" className="border-border text-foreground font-sans">
-              <Download className="w-4 h-4 mr-2" /> Exportar CSV
+            <Button onClick={exportExcel} variant="outline" size="sm" className="border-border text-foreground font-sans">
+              <Download className="w-4 h-4 mr-2" /> Exportar Excel
             </Button>
           </div>
         </div>
@@ -379,7 +379,7 @@ const Admin = () => {
             </Card>
           ))}
         </div>
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {[
             { label: 'Competição', value: statsInsc.competicao, icon: Trophy },
             { label: 'Mostra', value: statsInsc.mostra, icon: Star },
@@ -428,9 +428,9 @@ const Admin = () => {
                 <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Ano" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os anos</SelectItem>
-                  <SelectItem value="2026">2026</SelectItem>
-                  <SelectItem value="2027">2027</SelectItem>
-                  <SelectItem value="2028">2028</SelectItem>
+                  {anosInscricoes.map(ano => (
+                    <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -453,7 +453,7 @@ const Admin = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredInscricoes.map(i => {
+                {filteredInscricoes.slice((pagina - 1) * ITEMS_POR_PAGINA, pagina * ITEMS_POR_PAGINA).map(i => {
                   const tipo = TIPO_LABELS[i.tipo_inscricao] || TIPO_LABELS['competicao'];
                   return (
                     <TableRow key={i.id} className="border-border hover:bg-muted/30 transition-colors">
@@ -512,6 +512,17 @@ const Admin = () => {
           {filteredInscricoes.length === 0 && (
             <div className="p-10 text-center text-muted-foreground font-sans">
               <p>Nenhuma inscrição encontrada.</p>
+            </div>
+          )}
+          {filteredInscricoes.length > ITEMS_POR_PAGINA && (
+            <div className="flex items-center justify-between p-4 border-t border-border">
+              <p className="text-sm text-muted-foreground font-sans">
+                {(pagina - 1) * ITEMS_POR_PAGINA + 1}–{Math.min(pagina * ITEMS_POR_PAGINA, filteredInscricoes.length)} de {filteredInscricoes.length}
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={pagina <= 1} onClick={() => setPagina(p => p - 1)} className="border-border font-sans">Anterior</Button>
+                <Button variant="outline" size="sm" disabled={pagina * ITEMS_POR_PAGINA >= filteredInscricoes.length} onClick={() => setPagina(p => p + 1)} className="border-border font-sans">Próxima</Button>
+              </div>
             </div>
           )}
         </Card>

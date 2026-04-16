@@ -84,15 +84,22 @@ const Index = () => {
     load();
   }, []);
 
-  const c = (key: string, fallback: string) => (typeof config[key] === 'string' ? config[key] : fallback);
+  const c = (key: string, fallback: string) => {
+    const val = config[key];
+    if (val === undefined || val === null) return fallback;
+    if (typeof val === 'string') return val;
+    // JSONB strings may be stored with quotes
+    const s = String(val).replace(/^"|"$/g, '');
+    return s || fallback;
+  };
 
-  const eventoNome = c('evento_nome', 'F.A.D.D.A');
-  const eventoData = c('evento_data', '08 e 09 de Agosto 2026');
-  const eventoLocal = c('evento_local', 'Araraquara, São Paulo');
+  const eventoNome = c('evento_nome', '');
+  const eventoData = c('evento_data', '');
+  const eventoLocal = c('evento_local', '');
   const eventoHorario = c('evento_horario', '');
-  const eventoEdicao = c('evento_edicao', '9ª Edição');
-  const eventoSubtitulo = c('evento_subtitulo', 'Festival Araraquarense de Danças Árabes');
-  const eventoDescricao = c('evento_descricao', 'Competições • Mostras • Workshops • Premiações');
+  const eventoEdicao = c('evento_edicao', '');
+  const eventoSubtitulo = c('evento_subtitulo', '');
+  const eventoDescricao = c('evento_descricao', '');
   const eventoBackgroundUrl = c('evento_background_url', '');
 
   // Rules from config
@@ -112,7 +119,7 @@ const Index = () => {
   const infoCards = [
     hasEventoData && { icon: Calendar, title: 'Quando', desc: `${eventoData}${eventoHorario ? ` • ${eventoHorario}` : ''}` },
     hasEventoLocal && { icon: MapPin, title: 'Onde', desc: eventoLocal },
-    { icon: Users, title: 'Categorias', desc: 'Solo, Dupla/Trio e Grupo' },
+    modalidades.length > 0 && { icon: Users, title: 'Categorias', desc: 'Solo, Dupla/Trio e Grupo' },
   ].filter(Boolean) as { icon: any; title: string; desc: string }[];
 
   return (
@@ -124,12 +131,12 @@ const Index = () => {
           <div className="absolute inset-0 bg-gradient-hero opacity-80" />
         </div>
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-          <Badge className="mb-6 bg-primary/20 border-gold text-gold-light px-4 py-1.5 text-sm font-sans">
-            {eventoEdicao} • {eventoData}
-          </Badge>
-          <h1 className="text-5xl md:text-7xl font-serif font-bold text-gradient-gold mb-4 leading-tight">
+          {eventoEdicao && <Badge className="mb-6 bg-primary/20 border-gold text-gold-light px-4 py-1.5 text-sm font-sans">
+            {eventoEdicao}{eventoData ? ` • ${eventoData}` : ''}
+          </Badge>}
+          {eventoNome && <h1 className="text-5xl md:text-7xl font-serif font-bold text-gradient-gold mb-4 leading-tight">
             {eventoNome}
-          </h1>
+          </h1>}
           <p className="text-xl md:text-2xl font-serif text-gold-light/90 mb-2">
             {eventoSubtitulo}
           </p>
@@ -319,7 +326,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="py-8 px-4 bg-card border-t border-border">
         <div className="max-w-6xl mx-auto text-center text-muted-foreground text-sm font-sans">
-          <p>© 2026 {eventoNome} - {eventoSubtitulo}. Todos os direitos reservados.</p>
+          <p>© {new Date().getFullYear()}{eventoNome ? ` ${eventoNome}` : ''}{eventoSubtitulo ? ` - ${eventoSubtitulo}` : ''}. Todos os direitos reservados.</p>
           {typeof config.rodape_texto === 'string' && config.rodape_texto.trim() && (
             <p className="mt-1">{config.rodape_texto}</p>
           )}

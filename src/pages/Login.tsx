@@ -83,8 +83,8 @@ const Login = () => {
             {!isForgotPassword && (
               <div>
                 <Label className="text-foreground font-sans">Senha</Label>
-                <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={4} className="bg-background border-border text-foreground" />
-                {isSignUp && <p className="text-xs text-muted-foreground font-sans mt-1">Mínimo 4 caracteres</p>}
+                <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} className="bg-background border-border text-foreground" />
+                {isSignUp && <p className="text-xs text-muted-foreground font-sans mt-1">Mínimo 6 caracteres</p>}
                 {!isSignUp && (
                   <div className="text-right mt-1">
                     <button type="button" onClick={() => setIsForgotPassword(true)} className="text-xs text-primary hover:underline font-sans">

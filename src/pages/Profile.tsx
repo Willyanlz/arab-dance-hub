@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-import { isValidCpf, isValidEmail, isValidPhoneBR, maskCpf, normalizePhoneBR } from '@/lib/inputValidation';
+import { isValidCpf, isValidEmail, isValidPhoneBR, maskCpf, maskPhone } from '@/lib/inputValidation';
 
 const Profile = () => {
   const { user, loading: authLoading } = useAuth();
@@ -41,8 +41,8 @@ const Profile = () => {
           setCpf(data.cpf || '');
           setTelefone(data.telefone || '');
         }
-      })
-      .finally(() => setLoading(false));
+        setLoading(false);
+      });
   }, [user]);
 
   const handleSave = async () => {
@@ -125,7 +125,7 @@ const Profile = () => {
               </div>
               <div className="space-y-1">
                 <Label className="font-sans">WhatsApp</Label>
-                <Input value={telefone} onChange={(event) => setTelefone(normalizePhoneBR(event.target.value))} placeholder="16999999999" />
+                <Input value={maskPhone(telefone)} onChange={(event) => setTelefone(event.target.value.replace(/\D/g, '').slice(0, 11))} placeholder="(16) 99999-9999" />
               </div>
             </div>
             <div className="space-y-1">

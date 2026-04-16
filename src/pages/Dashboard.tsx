@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { isValidCpf, isValidEmail, isValidPhoneBR, maskCpf, normalizePhoneBR } from '@/lib/inputValidation';
+import { isValidCpf, isValidEmail, isValidPhoneBR, maskCpf, maskPhone } from '@/lib/inputValidation';
 
 type Inscricao = Database['public']['Tables']['inscricoes']['Row'];
 type IngressoVendido = Database['public']['Tables']['ingressos_vendidos']['Row'] & { tipos_ingresso?: { nome: string } };
@@ -345,7 +345,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <Label className="text-foreground font-sans">WhatsApp *</Label>
-                  <Input value={adminPessoa.whatsapp} onChange={(e) => setAdminPessoa(p => ({ ...p, whatsapp: normalizePhoneBR(e.target.value) }))} placeholder="16999999999" className="bg-background border-border text-foreground" />
+                  <Input value={maskPhone(adminPessoa.whatsapp)} onChange={(e) => setAdminPessoa(p => ({ ...p, whatsapp: e.target.value.replace(/\D/g, '').slice(0, 11) }))} placeholder="(16) 99999-9999" className="bg-background border-border text-foreground" />
                 </div>
               </div>
               <div>

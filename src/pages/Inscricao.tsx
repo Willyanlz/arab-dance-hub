@@ -5,11 +5,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import {
   getLoteAtual, calcularPreco, calcularPrecoMostra, calcularPrecoWorkshop,
@@ -18,63 +16,27 @@ import {
   type LoteCompetição, type LoteMostra, type LoteWorkshop,
   type CategoriaType, type TipoCompraWorkshop
 } from '@/lib/pricing';
-import { ArrowLeft, Plus, Trash2, Trophy, Star, BookOpen, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Trophy, Star, BookOpen } from 'lucide-react';
 import { FormFieldConfig } from './admin-config/components/FormBuilder';
 import { getSystemOptions, type SystemOptionItem } from '@/lib/systemOptions';
-import { isValidCpf, isValidEmail, isValidPhoneBR, maskCpf, normalizePhoneBR } from '@/lib/inputValidation';
-// import { initializePaymentGateway } from '@/lib/paymentGateway';
+import { isValidCpf, isValidEmail, isValidPhoneBR, maskCpf, maskPhone } from '@/lib/inputValidation';
 
-interface Participante {
-  nome: string;
-  cpf: string;
-  email?: string;
-  telefone?: string;
-}
-
-interface WorkshopItem {
-  id: string;
-  nome: string;
-  professor: string;
-  periodo: string;
-  horario: string;
-  ativo: boolean;
-}
-
-const TIPO_INSCRICAO_OPTIONS = [
-  {
-    value: 'competicao',
-    label: 'Competição',
-    desc: 'Inscreva-se para competir nas categorias e modalidades do festival.',
-    icon: Trophy,
-    color: 'border-gold text-gold-light',
-  },
-  {
-    value: 'mostra',
-    label: 'Mostra',
-    desc: 'Apresentação não competitiva ou avaliada. Ingresso do dia incluído!',
-    icon: Star,
-    color: 'border-burgundy text-burgundy',
-  },
-  {
-    value: 'workshop',
-    label: 'Workshop',
-    desc: 'Participe das aulas com professoras renomadas do cenário árabe.',
-    icon: BookOpen,
-    color: 'border-primary text-primary',
-  },
-];
+import type { Participante, WorkshopItem, TipoInscricao } from './inscricao/types';
+import { StepTipoSelector } from './inscricao/StepTipoSelector';
+import { StepDadosPessoais } from './inscricao/StepDadosPessoais';
+import { StepParticipantes } from './inscricao/StepParticipantes';
+import { StepResumo } from './inscricao/StepResumo';
 
 const Inscricao = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Global state
-  const [tipoInscricao, setTipoInscricao] = useState<'competicao' | 'mostra' | 'workshop' | null>(null);
-  const [step, setStep] = useState(0); // 0 = type selection
+  const [tipoInscricao, setTipoInscricao] = useState<TipoInscricao | null>(null);
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
 
-  // ── Pricing data ──────────────────────────────────────────────────────────
+  // Pricing
   const [lotes, setLotes] = useState<LoteCompetição[]>([]);
   const [loteAtual, setLoteAtual] = useState<LoteCompetição | null>(null);
   const [lotesMostra, setLotesMostra] = useState<LoteMostra[]>([]);
@@ -82,26 +44,24 @@ const Inscricao = () => {
   const [lotesWorkshop, setLotesWorkshop] = useState<LoteWorkshop[]>([]);
   const [loteAtualWorkshop, setLoteAtualWorkshop] = useState<LoteWorkshop | null>(null);
 
-  // ── Config ────────────────────────────────────────────────────────────────
+  // Config
   const [modalidadesConfig, setModalidadesConfig] = useState<any[]>([]);
   const [comoSoubeOpcoes, setComoSoubeOpcoes] = useState<string[]>([]);
   const [workshopsDisponiveis, setWorkshopsDisponiveis] = useState<WorkshopItem[]>([]);
   const [termosTexto, setTermosTexto] = useState<Record<string, string>>({});
   const [inscricoesAbertas, setInscricoesAbertas] = useState<Record<string, boolean>>({});
   const [faixaEtaria, setFaixaEtaria] = useState('');
-
-  // Dynamic Forms
   const [formConfigs, setFormConfigs] = useState<any[]>([]);
   const [dadosAdicionais, setDadosAdicionais] = useState<Record<string, any>>({});
   const [systemOptions, setSystemOptions] = useState<SystemOptionItem[]>([]);
 
-  // ── Profile fields ────────────────────────────────────────────────────────
+  // Profile
   const [cpf, setCpf] = useState('');
   const [telefone, setTelefone] = useState('');
   const [isJalilete, setIsJalilete] = useState(false);
   const [isAnterior, setIsAnterior] = useState(false);
 
-  // ── Shared fields ─────────────────────────────────────────────────────────
+  // Shared
   const [nomeEscola, setNomeEscola] = useState('');
   const [professora, setProfessora] = useState('');
   const [categoria, setCategoria] = useState<CategoriaType>('solo');
@@ -113,7 +73,7 @@ const Inscricao = () => {
   const [observacoes, setObservacoes] = useState('');
   const [pixInfo, setPixInfo] = useState({ chave: 'fadda@festival.com.br', banco: 'Nubank' });
 
-  // ── Competição fields ─────────────────────────────────────────────────────
+  // Competicao
   const [modalidade, setModalidade] = useState('');
   const [nomeCoreografia, setNomeCoreografia] = useState('');
   const [nomeArtistico, setNomeArtistico] = useState('');
@@ -123,7 +83,7 @@ const Inscricao = () => {
   const [termoMusica, setTermoMusica] = useState(false);
   const [termoSemEnsaio, setTermoSemEnsaio] = useState(false);
 
-  // ── Mostra fields ─────────────────────────────────────────────────────────
+  // Mostra
   const [tipoParticipacao, setTipoParticipacao] = useState('mostra');
   const [modalidadeMostra, setModalidadeMostra] = useState('');
   const [nomeCoreografiaMostra, setNomeCoreografiaMostra] = useState('');
@@ -134,11 +94,11 @@ const Inscricao = () => {
   const [termoMusicaM, setTermoMusicaM] = useState(false);
   const [termoSemEnsaioM, setTermoSemEnsaioM] = useState(false);
 
-  // ── Workshop fields ───────────────────────────────────────────────────────
+  // Workshop
   const [workshopsSelecionados, setWorkshopsSelecionados] = useState<string[]>([]);
   const [tipoCompraWorkshop, setTipoCompraWorkshop] = useState<TipoCompraWorkshop>('1_aula');
 
-  // ── Computed ──────────────────────────────────────────────────────────────
+  // Computed
   const eventoDay = checkEventDay();
   const numIntegrantes = categoria === 'solo' ? 1 : participantes.length + 1;
 
@@ -154,13 +114,12 @@ const Inscricao = () => {
 
   const { percentual: desconto, valorFinal } = calcularDesconto(precoBase, isJalilete, isAnterior);
 
-  // ── Auth guard ────────────────────────────────────────────────────────────
+  // Auth guard
   useEffect(() => {
     if (!authLoading && !user) navigate('/login?redirect=/inscricao');
   }, [user, authLoading]);
 
-  // ── Load data ─────────────────────────────────────────────────────────────
-  // ── Real-time subscriptions ────────────────────────────────────────────────
+  // Realtime
   useEffect(() => {
     const channel = supabase
       .channel('inscricao-realtime')
@@ -170,7 +129,6 @@ const Inscricao = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lotes_workshop' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'modalidades_config' }, () => load())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
@@ -178,15 +136,9 @@ const Inscricao = () => {
     if (!user) return;
     setLoadingData(true);
     const [
-      { data: lotesData },
-      { data: lotesMostraData },
-      { data: lotesWorkshopData },
-      { data: configData },
-      { data: workshopsData },
-      { data: termosData },
-      { data: profileData },
-      { data: modalidadesData },
-      { data: formConfigData },
+      { data: lotesData }, { data: lotesMostraData }, { data: lotesWorkshopData },
+      { data: configData }, { data: workshopsData }, { data: termosData },
+      { data: profileData }, { data: modalidadesData }, { data: formConfigData },
       { data: systemOptionsData },
     ] = await Promise.all([
       supabase.from('lotes').select('*').order('numero'),
@@ -203,7 +155,6 @@ const Inscricao = () => {
 
     if (formConfigData) setFormConfigs(formConfigData);
     if (systemOptionsData) setSystemOptions(systemOptionsData as SystemOptionItem[]);
-
     if (lotesData) { setLotes(lotesData as any); setLoteAtual(getLoteAtual(lotesData as any)); }
     if (lotesMostraData) { setLotesMostra(lotesMostraData as any); setLoteAtualMostra(getLoteAtual(lotesMostraData as any)); }
     if (lotesWorkshopData) { setLotesWorkshop(lotesWorkshopData as any); setLoteAtualWorkshop(getLoteAtual(lotesWorkshopData as any)); }
@@ -236,223 +187,24 @@ const Inscricao = () => {
     setLoadingData(false);
   };
 
-  useEffect(() => {
-    load();
-  }, [user]);
+  useEffect(() => { load(); }, [user]);
 
-
-  // Derived: modalidades filtered by tipo and periodo
+  // Derived
   const modalidadesComp = modalidadesConfig.filter(m => m.tipo === 'competicao' && (periodo === 'nao_competir' || m.periodo === periodo));
   const modalidadesMostra = modalidadesConfig.filter(m => m.tipo === 'mostra' && m.periodo === periodoMostra);
+  const toggleWorkshop = (id: string) => setWorkshopsSelecionados(prev => prev.includes(id) ? prev.filter(w => w !== id) : [...prev, id]);
 
-  // ── Participant helpers ───────────────────────────────────────────────────
-  const addParticipante = () => setParticipantes([...participantes, { nome: '', cpf: '' }]);
-  const removeParticipante = (i: number) => setParticipantes(participantes.filter((_, idx) => idx !== i));
-  const updateParticipante = (i: number, field: keyof Participante, value: string) => {
-    const u = [...participantes];
-    u[i] = { ...u[i], [field]: value };
-    setParticipantes(u);
-  };
+  const CATEGORIAS = getSystemOptions('categoria', systemOptions);
+  const PERIODOS = getSystemOptions('periodo', systemOptions);
+  const TIPO_MUSICA = getSystemOptions('tipo_musica', systemOptions);
+  const TIPO_PARTICIPACAO = getSystemOptions('tipo_participacao', systemOptions);
+  const TIPO_COMPRA = getSystemOptions('tipo_compra', systemOptions);
 
-  // ── Workshop toggle ───────────────────────────────────────────────────────
-  const toggleWorkshop = (id: string) => {
-    setWorkshopsSelecionados(prev =>
-      prev.includes(id) ? prev.filter(w => w !== id) : [...prev, id]
-    );
-  };
-
-  // ── Submit ────────────────────────────────────────────────────────────────
-  const handleSubmit = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      if (!isValidCpf(cpf)) {
-        toast({ title: 'CPF inválido', description: 'Informe um CPF válido.', variant: 'destructive' });
-        setLoading(false);
-        return;
-      }
-      if (!isValidPhoneBR(telefone)) {
-        toast({ title: 'Telefone inválido', description: 'Informe DDD + número (ex: 16999999999).', variant: 'destructive' });
-        setLoading(false);
-        return;
-      }
-      const invalidParticipanteCpf = participantes.find(p => !p.nome?.trim() || !isValidCpf(p.cpf));
-      if (invalidParticipanteCpf) {
-        toast({ title: 'Participantes inválidos', description: 'Cada participante precisa ter nome e CPF válido.', variant: 'destructive' });
-        setLoading(false);
-        return;
-      }
-      const invalidParticipanteEmail = participantes.find(p => p.email && !isValidEmail(p.email));
-      if (invalidParticipanteEmail) {
-        toast({ title: 'E-mail inválido', description: 'Verifique o e-mail de um dos participantes.', variant: 'destructive' });
-        setLoading(false);
-        return;
-      }
-      // ── "Verifica no envio" ────────────────────────────────────────────────
-      const today = new Date().toISOString().split('T')[0];
-      let currentLoteValid = true;
-
-      if (tipoInscricao === 'competicao' && loteAtual) {
-        if (today < loteAtual.data_inicio || today > loteAtual.data_fim) currentLoteValid = false;
-      } else if (tipoInscricao === 'mostra' && loteAtualMostra) {
-        if (today < loteAtualMostra.data_inicio || today > loteAtualMostra.data_fim) currentLoteValid = false;
-      } else if (tipoInscricao === 'workshop' && loteAtualWorkshop) {
-        if (today < loteAtualWorkshop.data_inicio || today > loteAtualWorkshop.data_fim) currentLoteValid = false;
-      }
-
-      if (!currentLoteValid) {
-        toast({
-          title: 'Lote Expirado',
-          description: 'O lote selecionado não é mais válido para a data de hoje. Por favor, recarregue para obter os novos preços.',
-          variant: 'destructive'
-        });
-        setLoading(false);
-        load(); // Refresh data
-        return;
-      }
-
-      // Update profile
-      await supabase.from('profiles').update({ cpf, telefone, is_aluna_jalilete: isJalilete, participante_anterior: isAnterior }).eq('user_id', user.id);
-
-      const baseData = {
-        user_id: user.id,
-        tipo_inscricao: tipoInscricao!,
-        categoria,
-        nome_escola: nomeEscola || null,
-        professora: professora || null,
-        num_integrantes: numIntegrantes,
-        valor_total: precoBase,
-        desconto_percentual: desconto,
-        valor_final: valorFinal,
-        extra_harem: extraHarem,
-        como_soube: comoSoube || null,
-        observacoes: observacoes || null,
-        faixa_etaria: faixaEtaria || null,
-        dados_adicionais: dadosAdicionais,
-      };
-
-      let inscData: Record<string, any> = baseData;
-
-      if (tipoInscricao === 'competicao') {
-        inscData = {
-          ...baseData,
-          modalidade,
-          nome_coreografia: nomeCoreografia,
-          nome_artistico: nomeArtistico || null,
-          tipo_musica: tipoMusica,
-          periodo: periodo as any,
-          lote_id: loteAtual?.id || null,
-          termos_atraso: termoAtraso,
-          termos_musica: termoMusica,
-          termos_sem_ensaio: termoSemEnsaio,
-        };
-      } else if (tipoInscricao === 'mostra') {
-        inscData = {
-          ...baseData,
-          modalidade: modalidadeMostra,
-          nome_coreografia: nomeCoreografiaMostra,
-          tipo_musica: tipoMusicaMostra,
-          tipo_participacao: tipoParticipacao,
-          preferencia_periodo: periodoMostra,
-          sugestao_horario: sugestaoHorario || null,
-          lote_mostra_id: loteAtualMostra?.id || null,
-          termos_atraso: termoAtrasoM,
-          termos_musica: termoMusicaM,
-          termos_sem_ensaio: termoSemEnsaioM,
-        };
-      } else if (tipoInscricao === 'workshop') {
-        inscData = {
-          ...baseData,
-          modalidade: workshopsSelecionados.join(', '),
-          nome_coreografia: '',
-          tipo_compra_workshop: tipoCompraWorkshop,
-          lote_workshop_id: loteAtualWorkshop?.id || null,
-        };
-      }
-
-      const { data: insc, error: inscError } = await supabase.from('inscricoes').insert(inscData as any).select().single();
-      if (inscError) throw inscError;
-
-      // Participantes
-      if (participantes.length > 0 && insc) {
-        await supabase.from('participantes').insert(
-          participantes.map(p => ({ inscricao_id: insc.id, nome: p.nome, cpf: p.cpf || null, email: p.email || null, telefone: p.telefone || null }))
-        );
-      }
-
-      // Workshop selections
-      if (tipoInscricao === 'workshop' && workshopsSelecionados.length > 0 && insc) {
-        await supabase.from('inscricao_workshops').insert(
-          workshopsSelecionados.map(wid => ({ inscricao_id: insc.id, workshop_id: wid }))
-        );
-      }
-
-      // Pagamento
-      if (insc) {
-        const { data: pagamento, error: pagamentoError } = await supabase.from('pagamentos').insert({
-          inscricao_id: insc.id,
-          metodo: metodoPagamento,
-          valor: valorFinal,
-          status: 'pendente',
-        } as any).select().single();
-        if (pagamentoError) throw pagamentoError;
-
-        const email = user.email || '';
-        const nome = user.user_metadata?.nome || user.email || 'Participante';
-
-        if (metodoPagamento === 'cartao') {
-          const { data: mpData, error: mpErr } = await supabase.functions.invoke('create-mp-checkout', {
-            body: {
-              inscricao_id: insc.id,
-              pagamento_id: pagamento?.id,
-              valor: valorFinal,
-              descricao: `Inscrição ${tipoInscricao}`,
-              email,
-              nome,
-            },
-          });
-          if (mpErr) throw mpErr;
-          if (mpData?.init_point) {
-            window.location.href = mpData.init_point;
-            return;
-          }
-          throw new Error('Não foi possível iniciar o checkout do Mercado Pago.');
-        }
-
-        supabase.functions.invoke('send-pending-payment', {
-          body: {
-            email,
-            nome,
-            contexto: 'inscricao',
-            descricao: `Inscrição ${tipoInscricao}`,
-            valor: valorFinal,
-            metodo: metodoPagamento,
-          }
-        }).catch(console.error);
-      }
-
-      toast({
-        title: '✅ Inscrição realizada!',
-        description: 'Aguardando confirmação do pagamento.',
-      });
-      navigate('/dashboard');
-    } catch (err: any) {
-      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ── Validate steps ────────────────────────────────────────────────────────
+  // ── Condition evaluator ──
   const evaluateCondition = (condition: any) => {
-    // Sem condição = sempre visível
     if (!condition || !condition.field) return true;
-
     const val = dadosAdicionais[condition.field];
-
-    // Campo ainda não preenchido = condição falsa (campo filho fica oculto)
     if (val === undefined || val === null || val === '') return false;
-
     switch (condition.operator) {
       case '==': return String(val) == String(condition.value);
       case '!=': return String(val) != String(condition.value);
@@ -463,170 +215,90 @@ const Inscricao = () => {
     }
   };
 
-  const getVisibleFields = (fields: any[]) => {
-    return fields.filter(f => evaluateCondition(f.showIf));
-  };
+  const getVisibleFields = (fields: any[]) => fields.filter(f => evaluateCondition(f.showIf));
 
-  // ── Validate step 2 ───────────────────────────────────────────────────────
   const canProceedStep2 = () => {
     const config = formConfigs.find(c => c.tipo_inscricao === tipoInscricao);
-
-    // Fallback sem form config dinâmico
     if (!config || !config.fields) {
       if (tipoInscricao === 'competicao') return !!modalidade && !!nomeCoreografia;
       if (tipoInscricao === 'mostra') return !!modalidadeMostra && !!nomeCoreografiaMostra;
       if (tipoInscricao === 'workshop') return workshopsSelecionados.length > 0 && !!tipoCompraWorkshop;
       return false;
     }
-
-    const fields: FormFieldConfig[] = typeof config.fields === 'string'
-      ? JSON.parse(config.fields)
-      : config.fields;
-
-    // ✅ Apenas campos que estão VISÍVEIS (condição verdadeira) são validados
+    const fields: FormFieldConfig[] = typeof config.fields === 'string' ? JSON.parse(config.fields) : config.fields;
     const visibleFields = fields.filter(f => evaluateCondition(f.showIf));
-
     const dynamicValid = visibleFields.every(f => {
       if (!f.required) return true;
-
-      // Campos de sistema são controlados por state próprio, não dadosAdicionais
-      if (['periodo', 'modalidade', 'nome_coreografia', 'tipo_musica',
-        'tipo_participacao', 'tipo_compra', 'workshops', 'categoria'].includes(f.name)) {
-        return true; // validados abaixo separadamente
-      }
-
+      if (['periodo', 'modalidade', 'nome_coreografia', 'tipo_musica', 'tipo_participacao', 'tipo_compra', 'workshops', 'categoria'].includes(f.name)) return true;
       const val = dadosAdicionais[f.name];
       return val !== undefined && val !== null && String(val).trim().length > 0;
     });
-
-    // Validações dos campos de sistema (só se estiverem presentes no form config)
     const hasField = (name: string) => visibleFields.some(f => f.name === name);
-
     const sistemaValid = (() => {
-      if (tipoInscricao === 'competicao') {
-        const modalidadeOk = !hasField('modalidade') || !!modalidade;
-        const coreografiaOk = !hasField('nome_coreografia') || !!nomeCoreografia;
-        return modalidadeOk && coreografiaOk;
-      }
-      if (tipoInscricao === 'mostra') {
-        const modalidadeOk = !hasField('modalidade') || !!modalidadeMostra;
-        const coreografiaOk = !hasField('nome_coreografia') || !!nomeCoreografiaMostra;
-        return modalidadeOk && coreografiaOk;
-      }
-      if (tipoInscricao === 'workshop') {
-        const workshopsOk = !hasField('workshops') || workshopsSelecionados.length > 0;
-        const tipoOk = !hasField('tipo_compra') || !!tipoCompraWorkshop;
-        return workshopsOk && tipoOk;
-      }
+      if (tipoInscricao === 'competicao') return (!hasField('modalidade') || !!modalidade) && (!hasField('nome_coreografia') || !!nomeCoreografia);
+      if (tipoInscricao === 'mostra') return (!hasField('modalidade') || !!modalidadeMostra) && (!hasField('nome_coreografia') || !!nomeCoreografiaMostra);
+      if (tipoInscricao === 'workshop') return (!hasField('workshops') || workshopsSelecionados.length > 0) && (!hasField('tipo_compra') || !!tipoCompraWorkshop);
       return true;
     })();
-
     return dynamicValid && sistemaValid;
   };
 
-  const canSubmit = () => {
-    return termosAceitos;
-  };
-
-  const CATEGORIAS = getSystemOptions('categoria', systemOptions);
-  const PERIODOS = getSystemOptions('periodo', systemOptions);
-  const TIPO_MUSICA = getSystemOptions('tipo_musica', systemOptions);
-  const TIPO_PARTICIPACAO = getSystemOptions('tipo_participacao', systemOptions);
-  const TIPO_COMPRA = getSystemOptions('tipo_compra', systemOptions);
-
+  // ── Dynamic field renderer ──
   const renderField = (f: any) => {
-    // Special logic for reserved system fields
     if (f.name === 'periodo') {
       return (
         <div key={f.id} className="space-y-1">
           <Label className="text-foreground font-sans">{f.label} {f.required ? '*' : ''}</Label>
-          <Select
-            value={tipoInscricao === 'mostra' ? periodoMostra : periodo}
-            onValueChange={v => tipoInscricao === 'mostra' ? setPeriodoMostra(v) : setPeriodo(v)}
-          >
+          <Select value={tipoInscricao === 'mostra' ? periodoMostra : periodo} onValueChange={v => tipoInscricao === 'mostra' ? setPeriodoMostra(v) : setPeriodo(v)}>
             <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-            </SelectContent>
+            <SelectContent>{PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       );
     }
-
     if (f.name === 'modalidade') {
-      const currentModalidade = tipoInscricao === 'mostra' ? modalidadeMostra : modalidade;
-      const currentModalidades = tipoInscricao === 'mostra' ? modalidadesMostra : modalidadesComp;
-
+      const cur = tipoInscricao === 'mostra' ? modalidadeMostra : modalidade;
+      const list = tipoInscricao === 'mostra' ? modalidadesMostra : modalidadesComp;
       return (
         <div key={f.id} className="space-y-1">
           <Label className="text-foreground font-sans">{f.label} *</Label>
-          <Select
-            value={currentModalidade}
-            onValueChange={v => {
-              if (tipoInscricao === 'mostra') setModalidadeMostra(v);
-              else setModalidade(v);
-              const m = currentModalidades.find(x => x.nome === v);
-              if (m?.faixa_etaria) setFaixaEtaria(m.faixa_etaria);
-            }}
-          >
+          <Select value={cur} onValueChange={v => { tipoInscricao === 'mostra' ? setModalidadeMostra(v) : setModalidade(v); const m = list.find(x => x.nome === v); if (m?.faixa_etaria) setFaixaEtaria(m.faixa_etaria); }}>
             <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-            <SelectContent>
-              {currentModalidades.map(m => (
-                <SelectItem key={m.id} value={m.nome}>
-                  {m.nome} {m.horario ? `· ${m.horario}` : ''} {m.faixa_etaria ? `(${m.faixa_etaria})` : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
+            <SelectContent>{list.map(m => <SelectItem key={m.id} value={m.nome}>{m.nome} {m.horario ? `· ${m.horario}` : ''} {m.faixa_etaria ? `(${m.faixa_etaria})` : ''}</SelectItem>)}</SelectContent>
           </Select>
-          {currentModalidades.length === 0 && (
-            <p className="text-[10px] text-muted-foreground mt-1 font-sans italic">Defina o período para ver as opções.</p>
-          )}
+          {list.length === 0 && <p className="text-[10px] text-muted-foreground mt-1 font-sans italic">Defina o período para ver as opções.</p>}
         </div>
       );
     }
-
     if (f.name === 'categoria') {
       return (
         <div key={f.id} className="space-y-1">
           <Label className="text-foreground font-sans">{f.label} *</Label>
           <Select value={categoria} onValueChange={v => { setCategoria(v as CategoriaType); setParticipantes([]); }}>
             <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {CATEGORIAS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-            </SelectContent>
+            <SelectContent>{CATEGORIAS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       );
     }
-
     if (f.name === 'nome_coreografia') {
       const val = tipoInscricao === 'mostra' ? nomeCoreografiaMostra : nomeCoreografia;
       return (
         <div key={f.id} className="space-y-1">
           <Label className="text-foreground font-sans">{f.label} *</Label>
-          <Input
-            value={val}
-            onChange={e => tipoInscricao === 'mostra' ? setNomeCoreografiaMostra(e.target.value) : setNomeCoreografia(e.target.value)}
-            className="bg-background border-border text-foreground"
-          />
+          <Input value={val} onChange={e => tipoInscricao === 'mostra' ? setNomeCoreografiaMostra(e.target.value) : setNomeCoreografia(e.target.value)} className="bg-background border-border text-foreground" />
         </div>
       );
     }
-
     if (f.name === 'tipo_musica') {
       const val = tipoInscricao === 'mostra' ? tipoMusicaMostra : tipoMusica;
       return (
         <div key={f.id} className="space-y-3 p-3 bg-muted/20 rounded-lg">
           <Label className="text-foreground font-sans text-xs font-bold uppercase">{f.label} *</Label>
           <div className="flex gap-6">
-            {TIPO_MUSICA.map((op) => (
+            {TIPO_MUSICA.map(op => (
               <label key={op.value} className="flex items-center gap-2 cursor-pointer font-sans text-sm">
-                <input
-                  type="radio"
-                  checked={val === op.value}
-                  onChange={() => tipoInscricao === 'mostra' ? setTipoMusicaMostra(op.value as any) : setTipoMusica(op.value as any)}
-                  className="accent-primary"
-                />
+                <input type="radio" checked={val === op.value} onChange={() => tipoInscricao === 'mostra' ? setTipoMusicaMostra(op.value as any) : setTipoMusica(op.value as any)} className="accent-primary" />
                 {op.label}
               </label>
             ))}
@@ -634,49 +306,36 @@ const Inscricao = () => {
         </div>
       );
     }
-
     if (f.name === 'tipo_participacao') {
       return (
         <div key={f.id} className="space-y-1">
           <Label className="text-foreground font-sans">{f.label} *</Label>
           <Select value={tipoParticipacao} onValueChange={setTipoParticipacao}>
             <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {(TIPO_PARTICIPACAO.length > 0 ? TIPO_PARTICIPACAO : TIPO_PARTICIPACAO_MOSTRA).map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-            </SelectContent>
+            <SelectContent>{(TIPO_PARTICIPACAO.length > 0 ? TIPO_PARTICIPACAO : TIPO_PARTICIPACAO_MOSTRA).map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       );
     }
-
     if (f.name === 'tipo_compra') {
       return (
         <div key={f.id} className="space-y-1">
           <Label className="text-foreground font-sans">{f.label} *</Label>
           <Select value={tipoCompraWorkshop} onValueChange={v => setTipoCompraWorkshop(v as TipoCompraWorkshop)}>
             <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {(TIPO_COMPRA.length > 0 ? TIPO_COMPRA : WORKSHOP_TIPO_COMPRA).map((t: any) => (
-                <SelectItem key={t.value} value={t.value}>
-                  {t.label} {loteAtualWorkshop ? `— R$ ${(loteAtualWorkshop as any)[`preco_${t.value}`]?.toFixed(2) || ''}` : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
+            <SelectContent>{(TIPO_COMPRA.length > 0 ? TIPO_COMPRA : WORKSHOP_TIPO_COMPRA).map((t: any) => <SelectItem key={t.value} value={t.value}>{t.label} {loteAtualWorkshop ? `— R$ ${(loteAtualWorkshop as any)[`preco_${t.value}`]?.toFixed(2) || ''}` : ''}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       );
     }
-
     if (f.name === 'workshops') {
       return (
         <div key={f.id} className="space-y-2">
           <Label className="text-foreground font-sans">{f.label} *</Label>
           <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
             {workshopsDisponiveis.map(w => (
-              <button
-                key={w.id} type="button" onClick={() => toggleWorkshop(w.id)}
-                className={`w-full text-left p-3 rounded-lg border transition-all ${workshopsSelecionados.includes(w.id) ? 'border-gold bg-primary/10' : 'border-border bg-background hover:border-gold/40'}`}
-              >
+              <button key={w.id} type="button" onClick={() => toggleWorkshop(w.id)}
+                className={`w-full text-left p-3 rounded-lg border transition-all ${workshopsSelecionados.includes(w.id) ? 'border-gold bg-primary/10' : 'border-border bg-background hover:border-gold/40'}`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-foreground font-sans text-xs">{w.nome}</p>
@@ -691,17 +350,12 @@ const Inscricao = () => {
       );
     }
 
-    // Default dynamic field rendering
+    // Default dynamic field
     return (
       <div key={f.id} className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-300">
         {f.type !== 'checkbox' && <Label className="text-foreground font-sans">{f.label} {f.required ? '*' : ''}</Label>}
         {f.type === 'text' || f.type === 'email' || f.type === 'number' || f.type === 'date' ? (
-          <Input
-            type={f.type} placeholder={f.placeholder || ''}
-            value={dadosAdicionais[f.name] || ''}
-            onChange={e => setDadosAdicionais({ ...dadosAdicionais, [f.name]: e.target.value })}
-            className="bg-background border-border text-foreground"
-          />
+          <Input type={f.type} placeholder={f.placeholder || ''} value={dadosAdicionais[f.name] || ''} onChange={e => setDadosAdicionais({ ...dadosAdicionais, [f.name]: e.target.value })} className="bg-background border-border text-foreground" />
         ) : f.type === 'select' ? (
           <Select value={dadosAdicionais[f.name] || ''} onValueChange={v => setDadosAdicionais({ ...dadosAdicionais, [f.name]: v })}>
             <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
@@ -732,7 +386,6 @@ const Inscricao = () => {
     if (!config || !config.fields) return <p className="text-center py-8 text-muted-foreground">Configuração não encontrada.</p>;
     let fields = typeof config.fields === 'string' ? JSON.parse(config.fields) : config.fields;
     const visibleFields = getVisibleFields(fields);
-
     return (
       <Card className="bg-card border-border shadow-lg">
         <CardHeader>
@@ -745,14 +398,12 @@ const Inscricao = () => {
         </CardHeader>
         <CardContent className="space-y-5">
           {visibleFields.map(f => renderField(f))}
-
           {tipoInscricao === 'mostra' && (
             <div className="p-4 bg-primary/5 border border-gold/20 rounded-lg text-sm font-sans text-foreground flex items-start gap-3">
               <span className="text-lg">🎟️</span>
               <p><strong>Incluso na inscrição:</strong> Ingresso para o dia todo (9h até 18:30). Para o show de gala, adquira via Sympla.</p>
             </div>
           )}
-
           <div className="flex gap-3 pt-4 border-t border-border mt-4">
             <Button variant="outline" onClick={() => setStep(1)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
             <Button onClick={() => { if (!canProceedStep2()) { toast({ title: 'Preencha os campos obrigatórios', variant: 'destructive' }); return; } setStep(3); }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans shadow-md">Próximo</Button>
@@ -762,7 +413,79 @@ const Inscricao = () => {
     );
   };
 
-  // ── Render loading ────────────────────────────────────────────────────────
+  // ── Submit ──
+  const handleSubmit = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      if (!isValidCpf(cpf)) { toast({ title: 'CPF inválido', variant: 'destructive' }); setLoading(false); return; }
+      if (!isValidPhoneBR(telefone)) { toast({ title: 'Telefone inválido', variant: 'destructive' }); setLoading(false); return; }
+      const invalidP = participantes.find(p => !p.nome?.trim() || !isValidCpf(p.cpf));
+      if (invalidP) { toast({ title: 'Participantes inválidos', description: 'Cada participante precisa ter nome e CPF válido.', variant: 'destructive' }); setLoading(false); return; }
+      const invalidEmail = participantes.find(p => p.email && !isValidEmail(p.email));
+      if (invalidEmail) { toast({ title: 'E-mail inválido', variant: 'destructive' }); setLoading(false); return; }
+
+      const today = new Date().toISOString().split('T')[0];
+      let loteValid = true;
+      if (tipoInscricao === 'competicao' && loteAtual && (today < loteAtual.data_inicio || today > loteAtual.data_fim)) loteValid = false;
+      if (tipoInscricao === 'mostra' && loteAtualMostra && (today < loteAtualMostra.data_inicio || today > loteAtualMostra.data_fim)) loteValid = false;
+      if (tipoInscricao === 'workshop' && loteAtualWorkshop && (today < loteAtualWorkshop.data_inicio || today > loteAtualWorkshop.data_fim)) loteValid = false;
+      if (!loteValid) { toast({ title: 'Lote Expirado', description: 'Recarregue para obter os novos preços.', variant: 'destructive' }); setLoading(false); load(); return; }
+
+      await supabase.from('profiles').update({ cpf, telefone, is_aluna_jalilete: isJalilete, participante_anterior: isAnterior }).eq('user_id', user.id);
+
+      const baseData = {
+        user_id: user.id, tipo_inscricao: tipoInscricao!, categoria,
+        nome_escola: nomeEscola || null, professora: professora || null,
+        num_integrantes: numIntegrantes, valor_total: precoBase,
+        desconto_percentual: desconto, valor_final: valorFinal,
+        extra_harem: extraHarem, como_soube: comoSoube || null,
+        observacoes: observacoes || null, faixa_etaria: faixaEtaria || null,
+        dados_adicionais: dadosAdicionais,
+      };
+
+      let inscData: Record<string, any> = baseData;
+      if (tipoInscricao === 'competicao') {
+        inscData = { ...baseData, modalidade, nome_coreografia: nomeCoreografia, nome_artistico: nomeArtistico || null, tipo_musica: tipoMusica, periodo: periodo as any, lote_id: loteAtual?.id || null, termos_atraso: termoAtraso, termos_musica: termoMusica, termos_sem_ensaio: termoSemEnsaio };
+      } else if (tipoInscricao === 'mostra') {
+        inscData = { ...baseData, modalidade: modalidadeMostra, nome_coreografia: nomeCoreografiaMostra, tipo_musica: tipoMusicaMostra, tipo_participacao: tipoParticipacao, preferencia_periodo: periodoMostra, sugestao_horario: sugestaoHorario || null, lote_mostra_id: loteAtualMostra?.id || null, termos_atraso: termoAtrasoM, termos_musica: termoMusicaM, termos_sem_ensaio: termoSemEnsaioM };
+      } else if (tipoInscricao === 'workshop') {
+        inscData = { ...baseData, modalidade: workshopsSelecionados.join(', '), nome_coreografia: '', tipo_compra_workshop: tipoCompraWorkshop, lote_workshop_id: loteAtualWorkshop?.id || null };
+      }
+
+      const { data: insc, error: inscError } = await supabase.from('inscricoes').insert(inscData as any).select().single();
+      if (inscError) throw inscError;
+
+      if (participantes.length > 0 && insc) {
+        await supabase.from('participantes').insert(participantes.map(p => ({ inscricao_id: insc.id, nome: p.nome, cpf: p.cpf || null, email: p.email || null, telefone: p.telefone || null })));
+      }
+      if (tipoInscricao === 'workshop' && workshopsSelecionados.length > 0 && insc) {
+        await supabase.from('inscricao_workshops').insert(workshopsSelecionados.map(wid => ({ inscricao_id: insc.id, workshop_id: wid })));
+      }
+
+      if (insc) {
+        const { data: pagamento, error: pagamentoError } = await supabase.from('pagamentos').insert({ inscricao_id: insc.id, metodo: metodoPagamento, valor: valorFinal, status: 'pendente' } as any).select().single();
+        if (pagamentoError) throw pagamentoError;
+        const email = user.email || '';
+        const nome = user.user_metadata?.nome || user.email || 'Participante';
+        if (metodoPagamento === 'cartao') {
+          const { data: mpData, error: mpErr } = await supabase.functions.invoke('create-mp-checkout', { body: { inscricao_id: insc.id, pagamento_id: pagamento?.id, valor: valorFinal, descricao: `Inscrição ${tipoInscricao}`, email, nome } });
+          if (mpErr) throw mpErr;
+          if (mpData?.init_point) { window.location.href = mpData.init_point; return; }
+          throw new Error('Não foi possível iniciar o checkout do Mercado Pago.');
+        }
+        supabase.functions.invoke('send-pending-payment', { body: { email, nome, contexto: 'inscricao', descricao: `Inscrição ${tipoInscricao}`, valor: valorFinal, metodo: metodoPagamento } }).catch(console.error);
+      }
+
+      toast({ title: '✅ Inscrição realizada!', description: 'Aguardando confirmação do pagamento.' });
+      navigate('/dashboard');
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (authLoading || loadingData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -775,6 +498,9 @@ const Inscricao = () => {
   }
 
   const totalSteps = tipoInscricao === 'workshop' ? 3 : 4;
+  const currentModalidadeDisplay = tipoInscricao === 'mostra' ? modalidadeMostra : modalidade;
+  const currentCoreografiaDisplay = tipoInscricao === 'mostra' ? nomeCoreografiaMostra : nomeCoreografia;
+  const currentLoteNome = tipoInscricao === 'competicao' ? loteAtual?.nome : tipoInscricao === 'mostra' ? loteAtualMostra?.nome : loteAtualWorkshop?.nome;
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
@@ -785,7 +511,6 @@ const Inscricao = () => {
         <h1 className="text-3xl font-serif font-bold text-foreground mb-1">Inscrição</h1>
         <p className="text-muted-foreground font-sans mb-6 text-sm">9º F.A.D.D.A - Festival Araraquarense de Danças Árabes</p>
 
-        {/* Progress bar */}
         {step > 0 && (
           <div className="flex gap-1.5 mb-8">
             {Array.from({ length: totalSteps }).map((_, i) => (
@@ -794,333 +519,52 @@ const Inscricao = () => {
           </div>
         )}
 
-        {/* ─── STEP 0: Tipo de inscrição ─────────────────────────────────── */}
-        {step === 0 && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-serif font-semibold text-foreground mb-6">Como deseja participar?</h2>
-            {TIPO_INSCRICAO_OPTIONS.map(({ value, label, desc, icon: Icon, color }) => {
-              const aberta = inscricoesAbertas[value] !== false;
-              return (
-                <button
-                  key={value}
-                  disabled={!aberta}
-                  onClick={() => { setTipoInscricao(value as any); setStep(1); }}
-                  className={`w-full text-left p-5 rounded-xl border-2 transition-all duration-200 ${aberta ? 'hover:border-gold/60 hover:bg-card cursor-pointer' : 'opacity-50 cursor-not-allowed'} bg-card border-border flex items-start gap-4 group`}
-                >
-                  <div className={`p-2 rounded-lg bg-primary/10 ${color} mt-0.5`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-serif font-semibold text-foreground">{label}</p>
-                      {!aberta && <Badge variant="outline" className="text-xs border-border text-muted-foreground font-sans">Encerrado</Badge>}
-                      {aberta && value === 'mostra' && <Badge className="text-xs bg-primary/15 text-primary border-0 font-sans">🎟️ Ingresso incluso</Badge>}
-                    </div>
-                    <p className="text-sm text-muted-foreground font-sans mt-1">{desc}</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors mt-1 shrink-0" />
-                </button>
-              );
-            })}
-          </div>
+        {step === 0 && <StepTipoSelector inscricoesAbertas={inscricoesAbertas} onSelect={(tipo) => { setTipoInscricao(tipo); setStep(1); }} />}
+
+        {step === 1 && tipoInscricao && (
+          <StepDadosPessoais
+            tipoInscricao={tipoInscricao} cpf={cpf} setCpf={setCpf}
+            telefone={telefone} setTelefone={setTelefone}
+            isJalilete={isJalilete} setIsJalilete={setIsJalilete}
+            isAnterior={isAnterior} setIsAnterior={setIsAnterior}
+            onBack={() => { setStep(0); setTipoInscricao(null); }}
+            onNext={() => setStep(2)}
+          />
         )}
 
-        {/* ─── STEP 1: Dados Pessoais ────────────────────────────────────── */}
-        {step === 1 && (
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                {tipoInscricao && TIPO_INSCRICAO_OPTIONS.find(t => t.value === tipoInscricao) && (
-                  <Badge className="bg-primary/15 text-primary border-0 font-sans text-xs">
-                    {TIPO_INSCRICAO_OPTIONS.find(t => t.value === tipoInscricao)?.label}
-                  </Badge>
-                )}
-              </div>
-              <CardTitle className="font-serif text-foreground">1. Dados Pessoais</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="text-foreground font-sans">CPF *</Label>
-                <Input value={cpf} onChange={e => setCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" className="bg-background border-border text-foreground" />
-              </div>
-              <div>
-                <Label className="text-foreground font-sans">Telefone / WhatsApp *</Label>
-                <Input value={telefone} onChange={e => setTelefone(normalizePhoneBR(e.target.value))} placeholder="16999999999" className="bg-background border-border text-foreground" />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox id="jalilete" checked={isJalilete} onCheckedChange={v => setIsJalilete(!!v)} />
-                <label htmlFor="jalilete" className="text-sm font-sans text-foreground cursor-pointer">Sou aluna Jalilete <span className="text-primary">(10% desconto em todos os lotes)</span></label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox id="anterior" checked={isAnterior} onCheckedChange={v => setIsAnterior(!!v)} />
-                <label htmlFor="anterior" className="text-sm font-sans text-foreground cursor-pointer">Participei de edições anteriores <span className="text-primary">(5% desconto em todos os lotes)</span></label>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" onClick={() => { setStep(0); setTipoInscricao(null); }} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
-                <Button onClick={() => {
-                  if (!isValidCpf(cpf)) { toast({ title: 'CPF inválido', variant: 'destructive' }); return; }
-                  if (!isValidPhoneBR(telefone)) { toast({ title: 'Telefone inválido', description: 'Use DDD + número (ex: 16999999999).', variant: 'destructive' }); return; }
-                  setStep(2);
-                }} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ─── STEP 2: Detalhes por tipo (Agora Dinâmico) ──────────────── */}
         {step === 2 && renderFormStep2()}
 
-        {/* ─── STEP 3: Participantes ─────────────────────────────────────── */}
         {step === 3 && tipoInscricao !== 'workshop' && (
-          <Card className="bg-card border-border">
-            <CardHeader><CardTitle className="font-serif text-foreground">3. Participantes</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              {categoria === 'solo' ? (
-                <p className="text-muted-foreground font-sans text-sm">Categoria solo — apenas você participa desta inscrição.</p>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground font-sans">
-                    Adicione todos os participantes. <strong className="text-foreground">Nome e CPF são obrigatórios</strong> para cada integrante.
-                  </p>
-                  {participantes.map((p, i) => (
-                    <div key={i} className="p-4 bg-muted rounded-lg space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-semibold text-foreground font-sans">Participante {i + 2}</span>
-                        <Button variant="ghost" size="icon" onClick={() => removeParticipante(i)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                      </div>
-                      <Input placeholder="Nome completo *" value={p.nome} onChange={e => updateParticipante(i, 'nome', e.target.value)} className="bg-background border-border text-foreground" />
-                      <Input placeholder="CPF *" value={p.cpf} onChange={e => updateParticipante(i, 'cpf', maskCpf(e.target.value))} className="bg-background border-border text-foreground" />
-                      <Input placeholder="E-mail" value={p.email || ''} onChange={e => updateParticipante(i, 'email', e.target.value)} className="bg-background border-border text-foreground" />
-                      <Input placeholder="Telefone" value={p.telefone || ''} onChange={e => updateParticipante(i, 'telefone', normalizePhoneBR(e.target.value))} className="bg-background border-border text-foreground" />
-                    </div>
-                  ))}
-                  <Button variant="outline" onClick={addParticipante} className="w-full border-border text-foreground font-sans">
-                    <Plus className="w-4 h-4 mr-2" /> Adicionar Participante
-                  </Button>
-                </>
-              )}
-              {tipoInscricao === 'mostra' && (
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="harem_m" checked={extraHarem} onCheckedChange={v => setExtraHarem(!!v)} />
-                  <label htmlFor="harem_m" className="text-sm font-sans text-foreground cursor-pointer">Participar do Harem das Fadas?</label>
-                </div>
-              )}
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" onClick={() => setStep(2)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
-                <Button onClick={() => setStep(4)} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">Próximo</Button>
-              </div>
-            </CardContent>
-          </Card>
+          <StepParticipantes
+            tipoInscricao={tipoInscricao!}
+            categoria={categoria} participantes={participantes}
+            setParticipantes={setParticipantes}
+            extraHarem={extraHarem} setExtraHarem={setExtraHarem}
+            onBack={() => setStep(2)} onNext={() => setStep(4)}
+          />
         )}
 
-        {/* ─── STEP 3 (Workshop): Participantes do grupo ──────────────── */}
-        {step === 3 && tipoInscricao === 'workshop' && (
-          <Card className="bg-card border-border">
-            <CardHeader><CardTitle className="font-serif text-foreground">3. Resumo e Pagamento</CardTitle></CardHeader>
-            <CardContent className="space-y-5">
-              {/* Summary */}
-              <div className="bg-muted p-4 rounded-lg space-y-2 font-sans text-sm">
-                <p className="font-semibold text-foreground mb-2">Resumo</p>
-                {workshopsSelecionados.map(id => {
-                  const w = workshopsDisponiveis.find(wd => wd.id === id);
-                  return w ? <p key={id} className="text-muted-foreground">• {w.nome} ({w.professor})</p> : null;
-                })}
-                <div className="border-t border-border pt-2 mt-2">
-                  <div className="flex justify-between text-foreground"><span>Tipo:</span><span>{WORKSHOP_TIPO_COMPRA.find(t => t.value === tipoCompraWorkshop)?.label}</span></div>
-                  <div className="flex justify-between text-foreground"><span>Lote atual:</span><span>{loteAtualWorkshop?.nome || 'N/A'}</span></div>
-                  <div className="flex justify-between text-foreground font-bold text-lg mt-1"><span>Total:</span><span className="text-primary">R$ {valorFinal.toFixed(2)}</span></div>
-                  {desconto > 0 && <p className="text-primary text-xs">Desconto de {desconto}% aplicado</p>}
-                </div>
-              </div>
-
-              {/* Como soube */}
-              {comoSoubeOpcoes.length > 0 && (
-                <div>
-                  <Label className="text-foreground font-sans">Como soube do festival?</Label>
-                  <Select value={comoSoube} onValueChange={setComoSoube}>
-                    <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>
-                      {comoSoubeOpcoes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div>
-                <Label className="text-foreground font-sans">Método de Pagamento</Label>
-                <Select value={metodoPagamento} onValueChange={v => setMetodoPagamento(v as any)}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                  <SelectItem value="pix">PIX</SelectItem>
-                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                  <SelectItem value="cartao">Mercado Pago (Checkout Pro)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {metodoPagamento === 'pix' && (
-                <div className="p-4 bg-muted rounded-lg text-center font-sans">
-                  <p className="text-sm text-muted-foreground mb-1">Chave PIX:</p>
-                  <p className="font-bold text-foreground text-lg">{pixInfo.chave}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Envie o comprovante para confirmação</p>
-                </div>
-              )}
-              {metodoPagamento === 'dinheiro' && (
-                <div className="p-4 bg-muted rounded-lg text-center font-sans">
-                  <p className="text-sm text-muted-foreground mb-1">Pagamento em dinheiro</p>
-                  <p className="text-xs text-muted-foreground mt-1">A confirmação será feita manualmente pela organização.</p>
-                </div>
-              )}
-
-              {/* ── TERMOS WORKSHOP ── */}
-              <div className="rounded-xl border-2 border-gold/40 bg-primary/5 overflow-hidden">
-                <div className="flex items-center gap-2 bg-gradient-gold px-4 py-3">
-                  <span className="text-lg">📋</span>
-                  <p className="font-serif font-bold text-primary-foreground text-base">Regulamento — Workshop</p>
-                </div>
-                <div className="px-4 pt-4 pb-3 space-y-3">
-                  {termosTexto['workshop'] && (
-                    <p className="text-sm font-sans text-foreground leading-relaxed">{termosTexto['workshop']}</p>
-                  )}
-                  <div className="border-t border-gold/20 pt-3 space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide font-sans">Para prosseguir, marque que está ciente:</p>
-                    <label htmlFor="termos_w" className="flex items-start gap-3 cursor-pointer group p-2 rounded-lg hover:bg-primary/5 transition-colors">
-                      <Checkbox id="termos_w" checked={termosAceitos} onCheckedChange={v => setTermosAceitos(!!v)} className="mt-0.5 shrink-0" />
-                      <span className="text-sm font-sans text-foreground">Li, compreendi e aceito o regulamento do 9º F.A.D.D.A e todas as condições de participação nos Workshops.</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" onClick={() => setStep(2)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
-                <Button onClick={handleSubmit} disabled={loading || !canSubmit()} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans">
-                  {loading ? 'Processando...' : 'Confirmar Inscrição'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ─── STEP 4: Resumo e Pagamento (Comp/Mostra) ─────────────────── */}
-        {step === 4 && tipoInscricao !== 'workshop' && (
-          <Card className="bg-card border-border">
-            <CardHeader><CardTitle className="font-serif text-foreground">4. Resumo e Pagamento</CardTitle></CardHeader>
-            <CardContent className="space-y-5">
-              {/* Summary */}
-              <div className="bg-muted p-4 rounded-lg space-y-2 font-sans text-sm">
-                <p className="font-semibold text-foreground mb-2">Resumo da Inscrição</p>
-                <div className="flex justify-between text-foreground"><span>Tipo:</span><span className="capitalize">{tipoInscricao}</span></div>
-                <div className="flex justify-between text-foreground"><span>Categoria:</span><span>{CATEGORIAS.find(c => c.value === categoria)?.label}</span></div>
-                <div className="flex justify-between text-foreground"><span>Modalidade:</span><span>{tipoInscricao === 'mostra' ? modalidadeMostra : modalidade}</span></div>
-                <div className="flex justify-between text-foreground"><span>Coreografia:</span><span>{tipoInscricao === 'mostra' ? nomeCoreografiaMostra : nomeCoreografia}</span></div>
-                {numIntegrantes > 1 && <div className="flex justify-between text-foreground"><span>Integrantes:</span><span>{numIntegrantes}</span></div>}
-                {participantes.length > 0 && (
-                  <div>
-                    <p className="text-primary font-medium mt-1">Participantes:</p>
-                    {participantes.map((p, i) => <p key={i} className="text-muted-foreground pl-2">• {p.nome} {p.cpf ? `(${p.cpf})` : ''}</p>)}
-                  </div>
-                )}
-                <div className="border-t border-border pt-2 mt-2">
-                  <div className="flex justify-between text-foreground"><span>Lote:</span><span>{tipoInscricao === 'mostra' ? loteAtualMostra?.nome : loteAtual?.nome || 'N/A'}</span></div>
-                  <div className="flex justify-between text-foreground"><span>Valor base:</span><span>R$ {precoBase.toFixed(2)}</span></div>
-                  {desconto > 0 && <div className="flex justify-between text-primary"><span>Desconto ({desconto}%):</span><span>- R$ {(precoBase - valorFinal).toFixed(2)}</span></div>}
-                  <div className="flex justify-between font-bold text-lg text-foreground mt-1"><span>Total:</span><span className="text-primary">R$ {valorFinal.toFixed(2)}</span></div>
-                </div>
-              </div>
-
-              {/* ── TERMOS destacados antes do pagamento ── */}
-              {tipoInscricao === 'competicao' && (
-                <div className="rounded-xl border-2 border-gold/40 bg-primary/5 overflow-hidden">
-                  <div className="flex items-center gap-2 bg-gradient-gold px-4 py-3">
-                    <span className="text-lg">📋</span>
-                    <p className="font-serif font-bold text-primary-foreground text-base">Regulamento — Competição</p>
-                  </div>
-                  <div className="px-4 pt-4 pb-3 space-y-3">
-                    {termosTexto['competicao'] && (
-                      <div className="max-h-48 overflow-y-auto text-sm font-sans text-foreground leading-relaxed whitespace-pre-line">{termosTexto['competicao']}</div>
-                    )}
-                    <div className="border-t border-gold/20 pt-3">
-                      <label htmlFor="t_final_c" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
-                        <Checkbox id="t_final_c" checked={termosAceitos} onCheckedChange={v => setTermosAceitos(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground font-medium">✅ Declaro que li e aceitei os termos e regulamento do 9º F.A.D.D.A.</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {tipoInscricao === 'mostra' && (
-                <div className="rounded-xl border-2 border-gold/40 bg-primary/5 overflow-hidden">
-                  <div className="flex items-center gap-2 bg-gradient-gold px-4 py-3">
-                    <span className="text-lg">📋</span>
-                    <p className="font-serif font-bold text-primary-foreground text-base">Regulamento — Mostra</p>
-                  </div>
-                  <div className="px-4 pt-4 pb-3 space-y-3">
-                    {termosTexto['mostra'] && (
-                      <p className="text-sm font-sans text-foreground leading-relaxed">{termosTexto['mostra']}</p>
-                    )}
-                    <div className="border-t border-gold/20 pt-3">
-                      <label htmlFor="t_final_m" className="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-primary/5 transition-colors">
-                        <Checkbox id="t_final_m" checked={termosAceitos} onCheckedChange={v => setTermosAceitos(!!v)} className="mt-0.5 shrink-0" />
-                        <span className="text-sm font-sans text-foreground font-medium">✅ Declaro que li e aceitei os termos e regulamento do 9º F.A.D.D.A.</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Como soube */}
-              {comoSoubeOpcoes.length > 0 && (
-                <div>
-                  <Label className="text-foreground font-sans">Como soube do festival?</Label>
-                  <Select value={comoSoube} onValueChange={setComoSoube}>
-                    <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>
-                      {comoSoubeOpcoes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div>
-                <Label className="text-foreground font-sans">Observações (opcional)</Label>
-                <Textarea value={observacoes} onChange={e => setObservacoes(e.target.value)} className="bg-background border-border text-foreground" placeholder="Comentários, dúvidas..." />
-              </div>
-
-              <div>
-                <Label className="text-foreground font-sans">Método de Pagamento</Label>
-                <Select value={metodoPagamento} onValueChange={v => setMetodoPagamento(v as any)}>
-                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pix">PIX</SelectItem>
-                    <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                    <SelectItem value="cartao">Mercado Pago (Checkout Pro)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {metodoPagamento === 'pix' && (
-                <div className="p-4 bg-muted rounded-lg text-center font-sans">
-                  <p className="text-sm text-muted-foreground mb-1">Chave PIX:</p>
-                  <p className="font-bold text-foreground text-lg">{pixInfo.chave}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Envie o comprovante para confirmação</p>
-                </div>
-              )}
-              {metodoPagamento === 'dinheiro' && (
-                <div className="p-4 bg-muted rounded-lg text-center font-sans">
-                  <p className="text-sm text-muted-foreground mb-1">Pagamento em dinheiro</p>
-                  <p className="text-xs text-muted-foreground mt-1">A confirmação será feita manualmente pela organização.</p>
-                </div>
-              )}
-
-              {/* Aceite final já embutido nos cards de termos acima */}
-
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" onClick={() => setStep(3)} className="flex-1 border-border text-foreground font-sans">Voltar</Button>
-                <Button onClick={handleSubmit} disabled={loading || !canSubmit()} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90 font-sans shimmer">
-                  {loading ? 'Processando...' : 'Confirmar Inscrição'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        {((step === 3 && tipoInscricao === 'workshop') || (step === 4 && tipoInscricao !== 'workshop')) && tipoInscricao && (
+          <StepResumo
+            tipoInscricao={tipoInscricao}
+            categoria={categoria} categoriasOptions={CATEGORIAS}
+            modalidade={currentModalidadeDisplay}
+            nomeCoreografia={currentCoreografiaDisplay}
+            numIntegrantes={numIntegrantes} participantes={participantes}
+            precoBase={precoBase} desconto={desconto} valorFinal={valorFinal}
+            loteNome={currentLoteNome || ''}
+            workshopsSelecionados={workshopsSelecionados}
+            workshopsDisponiveis={workshopsDisponiveis}
+            tipoCompraWorkshop={tipoCompraWorkshop}
+            comoSoubeOpcoes={comoSoubeOpcoes} comoSoube={comoSoube} setComoSoube={setComoSoube}
+            observacoes={observacoes} setObservacoes={setObservacoes}
+            metodoPagamento={metodoPagamento} setMetodoPagamento={setMetodoPagamento}
+            pixInfo={pixInfo} termosTexto={termosTexto}
+            termosAceitos={termosAceitos} setTermosAceitos={setTermosAceitos}
+            loading={loading}
+            onBack={() => setStep(tipoInscricao === 'workshop' ? 2 : 3)}
+            onSubmit={handleSubmit}
+          />
         )}
       </div>
     </div>

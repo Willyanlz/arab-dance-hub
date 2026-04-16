@@ -47,11 +47,10 @@ export const ModalidadeManager = ({ tipo }: ModalidadeManagerProps) => {
       nome: m.nome, 
       tipo: tipo, 
       periodo: m.periodo, 
-      horario: m.horario, 
-      faixa_etaria: m.faixa_etaria, 
+      faixa_etaria_label: m.faixa_etaria, 
       ativo: m.ativo, 
       ordem: m.ordem 
-    };
+    } as any;
 
     if (m.id) {
       await supabase.from('modalidades_config').update(payload).eq('id', m.id);
@@ -60,7 +59,7 @@ export const ModalidadeManager = ({ tipo }: ModalidadeManagerProps) => {
       const { data, error } = await supabase.from('modalidades_config').insert(payload).select().single();
       if (!error && data) {
         const u = [...modalidades];
-        u[index] = data;
+        u[index] = data as any;
         setModalidades(u);
         toast({ title: '✅ Modalidade criada!' });
       }

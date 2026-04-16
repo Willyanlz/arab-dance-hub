@@ -43,6 +43,13 @@ export function normalizePhoneBR(value: string): string {
   return onlyDigits(value).slice(0, 11);
 }
 
+export function maskPhone(value: string): string {
+  const d = normalizePhoneBR(value);
+  if (d.length <= 2) return d;
+  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
 export function isValidPhoneBR(value: string): boolean {
   const d = normalizePhoneBR(value);
   // Accept 10 (landline) or 11 (mobile) digits, but default expected is 11
