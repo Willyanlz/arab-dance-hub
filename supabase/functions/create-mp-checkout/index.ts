@@ -82,7 +82,8 @@ serve(async (req: Request) => {
     }
 
     const preferenceId = String(mpJson?.id || "");
-    const initPoint = String(mpJson?.init_point || "");
+    // PARA TESTES: Usar sandbox_init_point. Quando for para produção real, mude de volta para init_point
+    const initPoint = String(mpJson?.sandbox_init_point || mpJson?.init_point || "");
     if (!preferenceId || !initPoint) throw new Error("Resposta do Mercado Pago incompleta (id/init_point)");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
