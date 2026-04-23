@@ -50,7 +50,11 @@ serve(async (req: Request) => {
           unit_price: Number(payload.valor || 0),
         },
       ],
-      payer: { name: payload.nome, email: payload.email },
+      payer: {
+        name: payload.nome,
+        email: payload.email,
+        identification: { type: "CPF", number: "19119119100" },
+      },
       external_reference: externalReference,
       back_urls: {
         success: payload.back_urls?.success || `${siteUrl}/dashboard?mp=success`,
@@ -82,8 +86,7 @@ serve(async (req: Request) => {
     }
 
     const preferenceId = String(mpJson?.id || "");
-    // PARA TESTES: Usar sandbox_init_point. Quando for para produção real, mude de volta para init_point
-    const initPoint = String(mpJson?.sandbox_init_point || mpJson?.init_point || "");
+    const initPoint = String(mpJson?.init_point || "");
     if (!preferenceId || !initPoint) throw new Error("Resposta do Mercado Pago incompleta (id/init_point)");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
