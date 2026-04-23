@@ -73,15 +73,15 @@ serve(async (req: Request) => {
     if (payErr) throw payErr;
 
     if (!pagamento?.id) {
-      // Try ticket purchase
-      const { data: ingresso, error: ingErr } = await sb
+      // Try ticket purchase (group by pedido_ref or fallback to id)
+      const { data: ingressos, error: ingErr } = await sb
         .from("ingressos_vendidos")
         .select("id, email, nome_comprador, quantidade, valor_total, status, tipo_ingresso_id")
-        .eq("id", externalReference)
-        .maybeSingle();
+        .or(`id.eq.${externalReference},pedido_ref.eq.${externalReference}`);
+
       if (ingErr) throw ingErr;
 
-      if (!ingresso?.id) {
+      if (!ingressos || ingressos.length === 0) {
         return new Response(JSON.stringify({ ok: true, ignored: true, reason: "payment_not_found" }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -89,28 +89,34 @@ serve(async (req: Request) => {
       }
 
       const newStatus = status === "confirmado" ? "confirmado" : status === "cancelado" ? "cancelado" : "pendente";
-      await sb
-        .from("ingressos_vendidos")
-        .update({ status: newStatus, preference_id: preferenceId || null, metodo_pagamento: "cartao" })
-        .eq("id", ingresso.id);
 
-      if (newStatus === "confirmado") {
-        const { data: tipo } = await sb.from("tipos_ingresso").select("nome").eq("id", ingresso.tipo_ingresso_id).maybeSingle();
-        await fetch(`${supabaseUrl}/functions/v1/send-ticket`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${serviceRole}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: ingresso.email,
-            nome_comprador: ingresso.nome_comprador,
-            quantidade: ingresso.quantidade,
-            tipo_ingresso_nome: String((tipo as any)?.nome || "Ingresso FADDA"),
-            ingresso_id: ingresso.id,
-            valor_total: ingresso.valor_total,
-          }),
-        }).catch(() => {});
+      for (const ingresso of ingressos) {
+        // Idempotency: if already confirmed, skip email
+        const isAlreadyConfirmed = ingresso.status === "confirmado";
+        
+        await sb
+          .from("ingressos_vendidos")
+          .update({ status: newStatus, preference_id: preferenceId || null, metodo_pagamento: "cartao" })
+          .eq("id", ingresso.id);
+
+        if (newStatus === "confirmado" && !isAlreadyConfirmed) {
+          const { data: tipo } = await sb.from("tipos_ingresso").select("nome").eq("id", ingresso.tipo_ingresso_id).maybeSingle();
+          await fetch(`${supabaseUrl}/functions/v1/send-ticket`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${serviceRole}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: ingresso.email,
+              nome_comprador: ingresso.nome_comprador,
+              quantidade: ingresso.quantidade,
+              tipo_ingresso_nome: String((tipo as any)?.nome || "Ingresso FADDA"),
+              ingresso_id: ingresso.id,
+              valor_total: ingresso.valor_total,
+            }),
+          }).catch(console.error);
+        }
       }
 
-      return new Response(JSON.stringify({ ok: true, ticket: true }), {
+      return new Response(JSON.stringify({ ok: true, ticket: true, affected: ingressos.length }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

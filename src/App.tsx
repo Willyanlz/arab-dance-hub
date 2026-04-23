@@ -28,6 +28,7 @@ import { ConfigEvento } from "./pages/admin-config/ConfigEvento";
 import { AdminRoles } from "./pages/admin-config/AdminRoles";
 import { FormBuilder } from "./pages/admin-config/components/FormBuilder";
 import { ConfigEmailTemplate } from "./pages/admin-config/ConfigEmailTemplate";
+import { AdminUsersManager } from "./pages/admin-config/components/AdminUsersManager";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +63,7 @@ const App = () => (
               <Route path="stands" element={<ConfigStands />} />
               <Route path="landpage" element={<ConfigEvento />} />
               <Route path="email-template" element={<ConfigEmailTemplate />} />
+              <Route path="usuarios" element={<AdminUsersManager />} />
               <Route path="admins" element={<AdminRoles />} />
             </Route>
             <Route path="/admin/ingressos" element={<AdminIngressos />} />

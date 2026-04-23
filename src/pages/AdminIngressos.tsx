@@ -65,25 +65,30 @@ const AdminIngressos = () => {
     setLoading(false);
   };
 
-  const updateStatus = async (id: string, status: string) => {
+  const updateStatus = async (ids: string | string[], status: string) => {
     try {
+      const idsArray = Array.isArray(ids) ? ids : [ids];
       if (status === 'confirmado') {
-        const ingresso = vendidos.find((v: any) => v.id === id);
-        const tipo = tipos.find((t: any) => t.id === ingresso?.tipo_ingresso_id);
-        if (ingresso) {
-          supabase.functions.invoke('send-ticket', {
-            body: {
-              email: ingresso.email,
-              nome_comprador: ingresso.nome_comprador,
-              quantidade: ingresso.quantidade,
-              tipo_ingresso_nome: tipo?.nome || 'Ingresso FADDA',
-              ingresso_id: ingresso.id,
-              valor_total: ingresso.valor_total
-            }
-          }).catch(console.error);
+        for (const id of idsArray) {
+          const ingresso = vendidos.find((v: any) => v.id === id);
+          const tipo = tipos.find((t: any) => t.id === ingresso?.tipo_ingresso_id);
+          if (ingresso && ingresso.status !== 'confirmado') {
+            supabase.functions.invoke('send-ticket', {
+              body: {
+                email: ingresso.email,
+                nome_comprador: ingresso.nome_comprador,
+                quantidade: 1,
+                tipo_ingresso_nome: tipo?.nome || 'Ingresso FADDA',
+                ingresso_id: ingresso.id,
+                valor_total: ingresso.valor_total
+              }
+            }).catch(console.error);
+          }
         }
       }
-      await supabase.from('ingressos_vendidos').update({ status } as any).eq('id', id);
+      for (const id of idsArray) {
+         await supabase.from('ingressos_vendidos').update({ status } as any).eq('id', id);
+      }
       toast({ title: '✅ Status atualizado' });
       loadData();
     } catch (e: any) {
@@ -254,47 +259,76 @@ const AdminIngressos = () => {
             {filteredVendidos.length === 0 ? (
               <p className="text-center text-muted-foreground font-sans py-8">Nenhum ingresso vendido.</p>
             ) : (
-              <div className="space-y-2">
-                {filteredVendidos.slice((pagina - 1) * ITEMS_POR_PAGINA, pagina * ITEMS_POR_PAGINA).map((v: any) => {
-                  const tipo = tipos.find((t: any) => t.id === v.tipo_ingresso_id);
+              <div className="space-y-4">
+                {Object.values(filteredVendidos.slice((pagina - 1) * ITEMS_POR_PAGINA, pagina * ITEMS_POR_PAGINA).reduce((acc: any, v: any) => {
+                  const key = v.cpf || v.email;
+                  if (!acc[key]) acc[key] = { info: v, ingressos: [] };
+                  acc[key].ingressos.push(v);
+                  return acc;
+                }, {})).map((grupo: any) => {
+                  const { info, ingressos } = grupo;
                   return (
-                    <div key={v.id} className="p-4 rounded-lg border border-border bg-muted/20 flex flex-col sm:flex-row justify-between gap-3">
-                      <div className="space-y-0.5">
-                        <p className="font-sans font-semibold text-foreground">{v.nome_comprador}</p>
-                        <p className="text-xs text-muted-foreground font-sans">{v.email} • CPF: {v.cpf}</p>
-                        <p className="text-xs text-muted-foreground font-sans">{v.quantidade}x • {tipo?.nome || '-'} • {new Date(v.created_at).toLocaleDateString('pt-BR')}</p>
-                        {(v.quantidade_validada || 0) > 0 && (
-                          <p className="text-xs text-green-500 font-bold font-sans flex items-center gap-1 mt-1">
-                            <CheckCircle2 className="w-3 h-3" /> {v.quantidade_validada}/{v.quantidade} utilizados
-                          </p>
-                        )}
+                    <div key={info.id} className="p-4 rounded-lg border border-border bg-card shadow-sm flex flex-col gap-3">
+                      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-border pb-3">
+                         <div>
+                           <p className="font-serif font-bold text-foreground text-lg">{info.nome_comprador}</p>
+                           <p className="text-xs text-muted-foreground font-sans flex gap-2">
+                             <span>📧 {info.email}</span>
+                             {info.cpf && <span>📝 {info.cpf}</span>}
+                           </p>
+                         </div>
+                         <div className="text-right">
+                           <p className="text-xs text-muted-foreground font-sans">Total em Compras</p>
+                           <p className="font-bold text-primary text-lg">
+                             R$ {ingressos.reduce((s: number, v: any) => s + Number(v.valor_total), 0).toFixed(2)}
+                           </p>
+                         </div>
                       </div>
-                      <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2">
-                        <p className="font-bold text-primary font-sans">R$ {Number(v.valor_total).toFixed(2)}</p>
-                        <Badge className={`${statusColors[v.status]} border text-xs flex items-center gap-1`}>
-                          {statusIcons[v.status]} {v.status}
-                        </Badge>
-                        <div className="flex gap-1">
-                          {(v.status === 'confirmado' || v.status === 'pago') && (v.quantidade_validada || 0) < v.quantidade && (
-                            <Button size="sm" onClick={() => validarIngresso(v)} className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs px-2 py-1 h-7 font-sans">Dar Baixa</Button>
-                          )}
-                          {(v.status === 'pago' || v.status === 'pendente') && (
-                            <Button size="sm" onClick={() => updateStatus(v.id, 'confirmado')} className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 h-7 font-sans">Confirmar</Button>
-                          )}
-                          {v.status !== 'cancelado' && (
-                            <Button size="sm" variant="outline" onClick={() => updateStatus(v.id, 'cancelado')} className="border-red-600 text-red-400 hover:bg-red-600/10 text-xs px-2 py-1 h-7 font-sans">Cancelar</Button>
-                          )}
-                        </div>
+
+                      <div className="space-y-2">
+                         {ingressos.map((v: any, i: number) => {
+                           const tipo = tipos.find((t: any) => t.id === v.tipo_ingresso_id);
+                           return (
+                             <div key={v.id || i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors">
+                               <div className="flex-1">
+                                 <p className="text-sm font-semibold font-sans">{tipo?.nome || 'Ingresso FADDA'}</p>
+                                 <p className="text-xs text-muted-foreground">Comprado em {new Date(v.created_at).toLocaleDateString('pt-BR')}</p>
+                                 {(v.quantidade_validada || 0) > 0 && (
+                                   <p className="text-xs text-green-500 font-bold font-sans flex items-center gap-1 mt-1">
+                                     <CheckCircle2 className="w-3 h-3" /> Usado ({v.quantidade_validada}/{v.quantidade})
+                                   </p>
+                                 )}
+                               </div>
+                               
+                               <div className="flex flex-wrap items-center gap-2">
+                                  <Badge className={`${statusColors[v.status]} border text-xs flex items-center gap-1`}>
+                                    {statusIcons[v.status]} {v.status}
+                                  </Badge>
+                                  <div className="flex gap-1">
+                                    {(v.status === 'confirmado' || v.status === 'pago') && (v.quantidade_validada || 0) < v.quantidade && (
+                                      <Button size="icon" title="Dar baixa" onClick={() => validarIngresso(v)} className="bg-primary hover:bg-primary/90 text-primary-foreground h-7 w-7"><Ticket className="w-3 h-3"/></Button>
+                                    )}
+                                    {(v.status === 'pago' || v.status === 'pendente') && (
+                                      <Button size="icon" title="Confirmar pagamento" onClick={() => updateStatus(v.id, 'confirmado')} className="bg-green-600 hover:bg-green-700 text-white h-7 w-7"><CheckCircle2 className="w-3 h-3"/></Button>
+                                    )}
+                                    {v.status !== 'cancelado' && (
+                                      <Button size="icon" title="Cancelar pagamento" variant="outline" onClick={() => updateStatus(v.id, 'cancelado')} className="border-red-600 text-red-400 hover:bg-red-600/10 h-7 w-7"><XCircle className="w-3 h-3"/></Button>
+                                    )}
+                                  </div>
+                               </div>
+                             </div>
+                           );
+                         })}
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
-            {filteredVendidos.length > ITEMS_POR_PAGINA && (
+            {Object.keys(filteredVendidos).length > ITEMS_POR_PAGINA && (
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
                 <p className="text-sm text-muted-foreground font-sans">
-                  {(pagina - 1) * ITEMS_POR_PAGINA + 1}–{Math.min(pagina * ITEMS_POR_PAGINA, filteredVendidos.length)} de {filteredVendidos.length}
+                  Página {pagina}
                 </p>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" disabled={pagina <= 1} onClick={() => setPagina(p => p - 1)} className="border-border font-sans">Anterior</Button>

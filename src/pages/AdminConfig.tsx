@@ -45,6 +45,7 @@ const AdminConfig = () => {
     { value: 'stands', label: 'Stands', icon: Store },
     { value: 'landpage', label: 'Evento', icon: Calendar },
     { value: 'email-template', label: 'E-mail', icon: LayoutGrid },
+    { value: 'usuarios', label: 'Participantes', icon: Shield },
     { value: 'admins', label: 'Admins', icon: Shield },
   ];
 

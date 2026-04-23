@@ -190,28 +190,58 @@ const Ingressos = () => {
         return;
       }
 
-      // Insert one record per cart item
+      const pedidoRef = crypto.randomUUID();
       const descParts: string[] = [];
+
+      // Insert one record per individual ticket
       for (const item of cart) {
         const serverItem = validation?.items?.find((v: any) => v.tipo_ingresso_id === item.tipo.id);
-        const valorTotal = serverItem ? serverItem.valor_total : Number(item.lote.preco) * item.quantidade;
+        const precoUnitario = serverItem ? serverItem.preco_unitario : Number(item.lote.preco);
 
-        const { error: saleError } = await supabase.from('ingressos_vendidos').insert({
-          tipo_ingresso_id: item.tipo.id,
-          user_id: user?.id || null,
-          nome_comprador: nome,
-          cpf,
-          email,
-          telefone: telefone || null,
-          quantidade: item.quantidade,
-          valor_total: valorTotal,
-          status: 'pendente',
-        } as any);
+        for (let i = 0; i < item.quantidade; i++) {
+          const { error: saleError } = await supabase.from('ingressos_vendidos').insert({
+            tipo_ingresso_id: item.tipo.id,
+            user_id: user?.id || null,
+            nome_comprador: nome,
+            cpf,
+            email,
+            telefone: telefone || null,
+            quantidade: 1,
+            valor_total: precoUnitario,
+            status: 'pendente',
+            pedido_ref: pedidoRef,
+          } as any);
 
-        if (saleError) throw saleError;
+          if (saleError) throw saleError;
+        }
         descParts.push(`${item.quantidade}x ${item.tipo.nome} (${item.lote.nome})`);
       }
 
+      if (metodoPagamento === 'cartao') {
+        const { data: checkoutData, error: checkoutErr } = await supabase.functions.invoke('create-mp-checkout', {
+          body: {
+            external_reference: pedidoRef,
+            valor: cartTotal,
+            descricao: `Ingressos FADDA: ${descParts.join(', ')}`,
+            email,
+            nome,
+            back_urls: {
+              success: `${window.location.origin}/ingressos?mp=success`,
+              pending: `${window.location.origin}/ingressos?mp=pending`,
+              failure: `${window.location.origin}/ingressos?mp=failure`,
+            }
+          }
+        });
+
+        if (checkoutErr) throw checkoutErr;
+        if (checkoutData?.error) throw new Error(checkoutData.error);
+        if (checkoutData?.init_point) {
+          window.location.href = checkoutData.init_point;
+          return; // Prevents loading state change so it redirects smoothly
+        }
+      }
+
+      // If pix or dinheiro
       supabase.functions.invoke('send-pending-payment', {
         body: { email, nome, contexto: 'ingresso', descricao: descParts.join(', '), valor: cartTotal, metodo: metodoPagamento }
       }).catch(console.error);
