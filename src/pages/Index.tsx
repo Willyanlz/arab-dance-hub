@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, Trophy, Music, Users, Star, Ticket, Camera, Scissors, CircleDot, Shield } from 'lucide-react';
+import { Calendar, MapPin, Trophy, Music, Users, Star, Ticket, Camera, Scissors, CircleDot, Shield, Clock } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
 
 
