@@ -24,13 +24,20 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const accessToken = Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN") || "";
-    if (!accessToken) throw new Error("MERCADO_PAGO_ACCESS_TOKEN não configurado");
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     if (!supabaseUrl || !serviceRole) throw new Error("SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY não configurados");
     const sb = createClient(supabaseUrl, serviceRole);
+
+    // Prioritize DB key over env var
+    const { data: secureCfg } = await sb
+      .from("secure_config")
+      .select("valor")
+      .eq("chave", "mp_access_token")
+      .maybeSingle();
+    
+    const accessToken = secureCfg?.valor || Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN") || "";
+    if (!accessToken) throw new Error("MERCADO_PAGO_ACCESS_TOKEN não configurado no painel nem no ENV");
 
     const payload = (await req.json().catch(() => ({}))) as MercadoPagoWebhookPayload;
     const paymentId = payload?.data?.id ? String(payload.data.id) : null;

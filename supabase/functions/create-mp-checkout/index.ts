@@ -18,17 +18,18 @@ const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-/** Get MP Access Token: env var first, then secure_config DB */
+/** Get MP Access Token: secure_config DB first, then env var fallback */
 async function getMpAccessToken(sb: any): Promise<string> {
-  const envToken = Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN") || "";
-  if (envToken) return envToken;
-
   const { data } = await sb
     .from("secure_config")
     .select("valor")
     .eq("chave", "mp_access_token")
     .maybeSingle();
-  return data?.valor || "";
+  
+  if (data?.valor) return data.valor;
+
+  // Fallback to env var if DB is empty
+  return Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN") || "";
 }
 
 serve(async (req: Request) => {
