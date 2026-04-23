@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
@@ -17,25 +18,47 @@ const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/** Get MP Access Token: env var first, then secure_config DB */
+async function getMpAccessToken(sb: any): Promise<string> {
+  const envToken = Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN") || "";
+  if (envToken) return envToken;
+
+  const { data } = await sb
+    .from("secure_config")
+    .select("valor")
+    .eq("chave", "mp_access_token")
+    .maybeSingle();
+  return data?.valor || "";
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const accessToken = Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN") || "";
-    if (!accessToken) throw new Error("MERCADO_PAGO_ACCESS_TOKEN não configurado");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const sb = createClient(supabaseUrl, supabaseKey);
+
+    const accessToken = await getMpAccessToken(sb);
+    if (!accessToken) {
+      return new Response(
+        JSON.stringify({ error: "Mercado Pago não configurado. Configure a chave de acesso no painel de integrações." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const payload = (await req.json()) as CreateMpCheckoutRequest;
     if (!payload?.email || !payload?.nome) {
-      return new Response(JSON.stringify({ error: "Campos obrigatórios: email e nome" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Campos obrigatórios: email e nome" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const siteUrl =
       Deno.env.get("SITE_URL") ||
       Deno.env.get("PUBLIC_SITE_URL") ||
-      "http://localhost:5173";
+      "https://fadda-festival.vercel.app";
 
     const externalReference =
       payload.external_reference || payload.pagamento_id || payload.inscricao_id || "";
@@ -53,7 +76,6 @@ serve(async (req: Request) => {
       payer: {
         name: payload.nome,
         email: payload.email,
-        identification: { type: "CPF", number: "19119119100" },
       },
       external_reference: externalReference,
       back_urls: {
@@ -87,12 +109,11 @@ serve(async (req: Request) => {
 
     const preferenceId = String(mpJson?.id || "");
     const initPoint = String(mpJson?.init_point || "");
-    if (!preferenceId || !initPoint) throw new Error("Resposta do Mercado Pago incompleta (id/init_point)");
+    if (!preferenceId || !initPoint) {
+      throw new Error("Resposta do Mercado Pago incompleta (id/init_point)");
+    }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     if (supabaseUrl && supabaseKey && payload.pagamento_id) {
-      const sb = createClient(supabaseUrl, supabaseKey);
       await sb.from("pagamentos").update({ preference_id: preferenceId }).eq("id", payload.pagamento_id);
     }
 
@@ -108,4 +129,3 @@ serve(async (req: Request) => {
     });
   }
 });
-

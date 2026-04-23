@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Ticket, Settings2, FileText, BookOpen, Store, Calendar, Shield, LayoutGrid, Coins, ClipboardList, Menu, X } from 'lucide-react';
+import { ArrowLeft, Ticket, Settings2, FileText, BookOpen, Store, Calendar, Shield, LayoutGrid, Coins, ClipboardList, Menu, X, Plug } from 'lucide-react';
 
 const AdminConfig = () => {
   const { user, loading: authLoading, isAdmin } = useAuth();
@@ -45,6 +45,7 @@ const AdminConfig = () => {
     { value: 'stands', label: 'Stands', icon: Store },
     { value: 'landpage', label: 'Evento', icon: Calendar },
     { value: 'email-template', label: 'E-mail', icon: LayoutGrid },
+    { value: 'integracoes', label: 'Integrações', icon: Plug },
     { value: 'usuarios', label: 'Participantes', icon: Shield },
     { value: 'admins', label: 'Admins', icon: Shield },
   ];

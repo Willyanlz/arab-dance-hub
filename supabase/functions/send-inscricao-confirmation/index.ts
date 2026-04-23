@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { sendEmail } from "../_shared/mailer.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,8 +11,7 @@ const corsHeaders = {
 const defaultTemplate = {
   titulo_email: "F.A.D.D.A",
   subtitulo_email: "Festival Araraquarense de Danças Árabes",
-  mensagem_confirmacao:
-    "Seu pagamento foi confirmado e sua inscrição está validada. Nos vemos no festival!",
+  mensagem_confirmacao: "Seu pagamento foi confirmado e sua inscrição está validada. Nos vemos no festival!",
   titulo_detalhes: "Resumo da Inscrição",
   rodape_evento: "9º F.A.D.D.A - 2026",
   rodape_local: "Araraquara, São Paulo",
@@ -22,9 +22,7 @@ const defaultTemplate = {
 };
 
 serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const payload = await req.json();
@@ -85,10 +83,17 @@ serve(async (req: Request) => {
       </div>
     `;
 
-    console.log('Email would be sent to:', payload.email);
-    console.log('Subject:', `Inscrição confirmada - ${tpl.rodape_evento}`);
+    const result = await sendEmail({
+      to: payload.email,
+      subject: `Inscrição confirmada - ${tpl.rodape_evento}`,
+      html,
+    });
 
-    return new Response(JSON.stringify({ success: true }), {
+    if (!result.sent && result.error && result.error !== "no_provider_configured") {
+      throw new Error(`Falha ao enviar email (${result.provider}): ${result.error}`);
+    }
+
+    return new Response(JSON.stringify({ success: true, provider: result.provider }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

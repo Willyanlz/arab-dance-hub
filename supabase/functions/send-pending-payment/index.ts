@@ -1,6 +1,7 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { sendEmail } from "../_shared/mailer.ts";
 
 type PendingPaymentRequest = {
   email: string;
@@ -19,8 +20,7 @@ const corsHeaders: Record<string, string> = {
 const defaultTemplate = {
   titulo_email: "F.A.D.D.A",
   subtitulo_email: "Festival Araraquarense de Danças Árabes",
-  mensagem_confirmacao:
-    "Recebemos sua solicitação e seu pagamento está aguardando confirmação. Assim que for confirmado, enviaremos a confirmação/voucher por e-mail.",
+  mensagem_confirmacao: "Recebemos sua solicitação e seu pagamento está aguardando confirmação. Assim que for confirmado, enviaremos a confirmação/voucher por e-mail.",
   titulo_detalhes: "Resumo",
   rodape_evento: "9º F.A.D.D.A - 2026",
   rodape_local: "Araraquara, São Paulo",
@@ -34,10 +34,6 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const resendKey = Deno.env.get("RESEND_KEY") || "";
-    if (!resendKey) throw new Error("RESEND_KEY não configurada");
-    const resend = new Resend(resendKey);
-
     const payload = (await req.json()) as PendingPaymentRequest;
     if (!payload?.email || !payload?.nome) {
       return new Response(JSON.stringify({ error: "Campos obrigatórios: email e nome" }), {
@@ -51,33 +47,32 @@ serve(async (req: Request) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     if (supabaseUrl && supabaseKey) {
       const sb = createClient(supabaseUrl, supabaseKey);
-
-      const { data: templateData } = await sb
-        .from("site_config")
-        .select("valor")
-        .eq("chave", "email_template_aguardando_pagamento")
-        .maybeSingle();
-      if (templateData?.valor && typeof templateData.valor === "object") {
-        tpl = { ...defaultTemplate, ...(templateData.valor as Record<string, unknown>) };
-      }
-
-      const { data: eventData } = await sb
-        .from("site_config")
-        .select("chave,valor")
-        .in("chave", ["evento_nome", "evento_subtitulo", "evento_edicao", "evento_local"]);
-      const eventMap: Record<string, string> = {};
-      (eventData || []).forEach((item: { chave: string; valor: unknown }) => {
-        eventMap[item.chave] = String(item.valor || "").replace(/"/g, "");
-      });
-      if (eventMap.evento_nome) tpl.titulo_email = eventMap.evento_nome;
-      if (eventMap.evento_subtitulo) tpl.subtitulo_email = eventMap.evento_subtitulo;
-      if (eventMap.evento_edicao) tpl.rodape_evento = eventMap.evento_edicao;
-      if (eventMap.evento_local) tpl.rodape_local = eventMap.evento_local;
+      try {
+        const { data: templateData } = await sb
+          .from("site_config")
+          .select("valor")
+          .eq("chave", "email_template_aguardando_pagamento")
+          .maybeSingle();
+        if (templateData?.valor && typeof templateData.valor === "object") {
+          tpl = { ...defaultTemplate, ...(templateData.valor as Record<string, unknown>) };
+        }
+        const { data: eventData } = await sb
+          .from("site_config")
+          .select("chave,valor")
+          .in("chave", ["evento_nome", "evento_subtitulo", "evento_edicao", "evento_local"]);
+        const eventMap: Record<string, string> = {};
+        (eventData || []).forEach((item: any) => {
+          eventMap[item.chave] = String(item.valor || "").replace(/"/g, "");
+        });
+        if (eventMap.evento_nome) tpl.titulo_email = eventMap.evento_nome;
+        if (eventMap.evento_subtitulo) tpl.subtitulo_email = eventMap.evento_subtitulo;
+        if (eventMap.evento_edicao) tpl.rodape_evento = eventMap.evento_edicao;
+        if (eventMap.evento_local) tpl.rodape_local = eventMap.evento_local;
+      } catch (_) {}
     }
 
     const valor = Number(payload.valor || 0);
-    const mensagem =
-      String((tpl as any).mensagem_confirmacao || (tpl as any).mensagem || defaultTemplate.mensagem_confirmacao);
+    const mensagem = String((tpl as any).mensagem_confirmacao || defaultTemplate.mensagem_confirmacao);
     const html = `
       <div style="font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;max-width:600px;margin:0 auto;background:${tpl.cor_fundo};color:${tpl.cor_texto};padding:36px 20px;border-radius:12px;border:1px solid ${tpl.cor_primaria};">
         <div style="text-align:center;margin-bottom:28px;">
@@ -100,15 +95,17 @@ serve(async (req: Request) => {
     `;
 
     const subjectPrefix = payload.contexto === "ingresso" ? "Compra registrada" : "Inscrição registrada";
-    const { error } = await resend.emails.send({
-      from: "FADDA <onboarding@resend.dev>",
-      to: [payload.email],
+    const result = await sendEmail({
+      to: payload.email,
       subject: `${subjectPrefix} - aguardando pagamento`,
       html,
     });
-    if (error) throw error;
 
-    return new Response(JSON.stringify({ success: true }), {
+    if (!result.sent && result.error && result.error !== "no_provider_configured") {
+      throw new Error(`Falha ao enviar email (${result.provider}): ${result.error}`);
+    }
+
+    return new Response(JSON.stringify({ success: true, provider: result.provider }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -120,4 +117,3 @@ serve(async (req: Request) => {
     });
   }
 });
-
