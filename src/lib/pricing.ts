@@ -45,10 +45,6 @@ export function getLoteAtual<T extends LoteBase>(lotes: T[]): T | null {
   return valid[0] ?? null;
 }
 
-export function isEventDay(): boolean {
-  const today = new Date().toISOString().split('T')[0];
-  return today === '2026-08-08' || today === '2026-08-09';
-}
 
 // ─── COMPETIÇÃO ───────────────────────────────────────────────────────────────
 
@@ -56,7 +52,7 @@ export function calcularPreco(
   lote: LoteCompetição,
   categoria: CategoriaType,
   numIntegrantes: number = 1,
-  eventoDay: boolean = false
+  dobrarPreco: boolean = false
 ): number {
   let preco: number;
   switch (categoria) {
@@ -72,7 +68,7 @@ export function calcularPreco(
     default:
       preco = 0;
   }
-  if (eventoDay) preco *= 2;
+  if (dobrarPreco) preco *= 2;
   return preco;
 }
 
@@ -82,7 +78,7 @@ export function calcularPrecoMostra(
   lote: LoteMostra,
   categoria: CategoriaType,
   numIntegrantes: number = 1,
-  eventoDay: boolean = false
+  dobrarPreco: boolean = false
 ): number {
   let preco: number;
   switch (categoria) {
@@ -99,8 +95,7 @@ export function calcularPrecoMostra(
     default:
       preco = 0;
   }
-  // Double on event day (base: 5th lot)
-  if (eventoDay) preco *= 2;
+  if (dobrarPreco) preco *= 2;
   return preco;
 }
 
@@ -109,7 +104,7 @@ export function calcularPrecoMostra(
 export function calcularPrecoWorkshop(
   lote: LoteWorkshop,
   tipoCompra: TipoCompraWorkshop,
-  eventoDay: boolean = false
+  dobrarPreco: boolean = false
 ): number {
   let preco: number;
   switch (tipoCompra) {
@@ -134,7 +129,7 @@ export function calcularPrecoWorkshop(
     default:
       preco = 0;
   }
-  if (eventoDay) preco *= 2;
+  if (dobrarPreco) preco *= 2;
   return preco;
 }
 

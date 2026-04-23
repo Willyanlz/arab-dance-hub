@@ -6,12 +6,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { Save, Plus, Trash2, Calendar, Trophy, Star, Shield } from 'lucide-react';
+import { Save, Plus, Trash2, Calendar, Trophy, Star, Shield, CalendarDays } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { formatEventDates } from '@/lib/date-utils';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export const ConfigEvento = () => {
   const [loading, setLoading] = useState(true);
   const [eventoNome, setEventoNome] = useState('F.A.D.D.A');
   const [eventoData, setEventoData] = useState('');
+  const [eventoDatas, setEventoDatas] = useState<string[]>([]);
   const [eventoLocal, setEventoLocal] = useState('');
   const [eventoHorario, setEventoHorario] = useState('');
   const [eventoPix, setEventoPix] = useState('');
@@ -34,6 +40,7 @@ export const ConfigEvento = () => {
       data.forEach((c: any) => { if (c && c.chave) map[c.chave] = c.valor; });
       setEventoNome(map.evento_nome || 'F.A.D.D.A');
       setEventoData(map.evento_data || '');
+      setEventoDatas(map.evento_datas || []);
       setEventoLocal(map.evento_local || '');
       setEventoHorario(map.evento_horario || '');
       setEventoPix(map.evento_pix || '');
@@ -92,6 +99,7 @@ export const ConfigEvento = () => {
       await Promise.all([
         upsert('evento_nome', eventoNome),
         upsert('evento_data', eventoData),
+        upsert('evento_datas', eventoDatas),
         upsert('evento_local', eventoLocal),
         upsert('evento_horario', eventoHorario),
         upsert('evento_pix', eventoPix),
@@ -146,7 +154,40 @@ export const ConfigEvento = () => {
             <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Edição</Label><Input value={eventoEdicao} onChange={e => setEventoEdicao(e.target.value)} className="bg-background border-border" /></div>
             <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Nome do Evento</Label><Input value={eventoNome} onChange={e => setEventoNome(e.target.value)} className="bg-background border-border" /></div>
             <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Subtítulo</Label><Input value={eventoSubtitulo} onChange={e => setEventoSubtitulo(e.target.value)} className="bg-background border-border" /></div>
-            <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Data</Label><Input value={eventoData} onChange={e => setEventoData(e.target.value)} className="bg-background border-border" /></div>
+            
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase font-bold text-muted-foreground">Datas do Evento</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal bg-background border-border h-10 px-3">
+                    <CalendarDays className="mr-2 h-4 w-4 text-primary" />
+                    <span className="truncate">
+                      {eventoDatas.length > 0 
+                        ? `${eventoDatas.length} dia(s) selecionado(s)` 
+                        : "Selecionar datas..."}
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="multiple"
+                    selected={eventoDatas.map(d => {
+                      const [year, month, day] = d.split('-').map(Number);
+                      return new Date(year, month - 1, day);
+                    })}
+                    onSelect={(dates) => {
+                      const isoDates = (dates || []).map(d => format(d, 'yyyy-MM-dd'));
+                      setEventoDatas(isoDates);
+                      setEventoData(formatEventDates(isoDates));
+                    }}
+                    locale={ptBR}
+                    className="rounded-md border shadow"
+                  />
+                </PopoverContent>
+              </Popover>
+              <p className="text-[10px] text-muted-foreground mt-1">Gera: {eventoData || '...'}</p>
+            </div>
+
             <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Local</Label><Input value={eventoLocal} onChange={e => setEventoLocal(e.target.value)} className="bg-background border-border" /></div>
             <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Horários</Label><Input value={eventoHorario} onChange={e => setEventoHorario(e.target.value)} className="bg-background border-border" /></div>
             <div className="space-y-1.5"><Label className="text-xs uppercase font-bold text-muted-foreground">Chave PIX</Label><Input value={eventoPix} onChange={e => setEventoPix(e.target.value)} className="bg-background border-border" /></div>

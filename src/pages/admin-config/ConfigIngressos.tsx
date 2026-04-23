@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
-import { Plus, Trash2, Ticket, Layers, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Ticket, Layers, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 
 interface Grupo {
   id: string;
@@ -42,6 +42,7 @@ export const ConfigIngressos = () => {
   const [lotes, setLotes] = useState<Lote[]>([]);
   const [tipos, setTipos] = useState<TipoIngresso[]>([]);
   const [expandedGrupo, setExpandedGrupo] = useState<string | null>(null);
+  const [configDobro, setConfigDobro] = useState({ ativo: false, data: '', hora: '00:00' });
 
   // New grupo
   const [novoGrupoNome, setNovoGrupoNome] = useState('');
@@ -62,6 +63,10 @@ export const ConfigIngressos = () => {
     setGrupos((gruposRes.data || []) as Grupo[]);
     setLotes((lotesRes.data || []) as Lote[]);
     setTipos((tiposRes.data || []) as TipoIngresso[]);
+    
+    const { data: configData } = await supabase.from('site_config').select('valor').eq('chave', 'config_dobro_ingresso').maybeSingle();
+    if (configData?.valor) setConfigDobro(configData.valor as any);
+    
     setLoading(false);
   }, []);
 
@@ -162,6 +167,12 @@ export const ConfigIngressos = () => {
     await supabase.from('tipos_ingresso').update({ ativo: false } as any).eq('id', id);
     toast({ title: 'Ingresso desativado' });
     loadData();
+  };
+
+  const saveDobroConfig = async (val: any) => {
+    const { error } = await supabase.from('site_config').upsert({ chave: 'config_dobro_ingresso', valor: val } as any, { onConflict: 'chave' });
+    if (error) toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+    else toast({ title: '✅ Regra de preço salva!' });
   };
 
   if (loading) return <div className="p-8 text-center animate-pulse text-muted-foreground font-sans">Carregando ingressos...</div>;
@@ -346,6 +357,68 @@ export const ConfigIngressos = () => {
             })}
             {grupos.length === 0 && <p className="text-sm text-muted-foreground font-sans">Nenhum grupo de lotes criado.</p>}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Regra de Preço Dobrado ── */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="font-serif text-foreground text-lg flex items-center gap-2">
+            <Clock className="w-5 h-5 text-primary" /> Regra de Preço Dobrado (Ingressos)
+          </CardTitle>
+          <CardDescription className="text-xs font-sans">
+            Configure se e quando os valores dos ingressos devem dobrar automaticamente.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border">
+            <div className="flex items-center gap-3">
+              <Clock className="w-4 h-4 text-primary" />
+              <p className="font-medium text-foreground font-sans text-sm">Dobrar Preço dos Ingressos?</p>
+            </div>
+            <Switch 
+              checked={configDobro.ativo} 
+              onCheckedChange={(v) => {
+                const next = { ...configDobro, ativo: v };
+                setConfigDobro(next);
+                saveDobroConfig(next);
+              }} 
+            />
+          </div>
+
+          {configDobro.ativo && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg border border-border animate-in fade-in slide-in-from-top-2 duration-300">
+              <div>
+                <Label className="text-xs text-muted-foreground uppercase">Data de Início</Label>
+                <Input 
+                  type="date" 
+                  value={configDobro.data} 
+                  onChange={(e) => {
+                    const next = { ...configDobro, data: e.target.value };
+                    setConfigDobro(next);
+                    saveDobroConfig(next);
+                  }}
+                  className="bg-background border-border"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground uppercase">Horário de Início</Label>
+                <Input 
+                  type="time" 
+                  value={configDobro.hora} 
+                  onChange={(e) => {
+                    const next = { ...configDobro, hora: e.target.value };
+                    setConfigDobro(next);
+                    saveDobroConfig(next);
+                  }}
+                  className="bg-background border-border"
+                />
+              </div>
+              <p className="md:col-span-2 text-[10px] text-muted-foreground italic font-sans">
+                A partir desta data e hora, todos os ingressos terão seu valor multiplicado por 2.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

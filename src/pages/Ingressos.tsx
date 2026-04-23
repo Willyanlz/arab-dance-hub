@@ -56,6 +56,7 @@ const Ingressos = () => {
   const [termosTexto, setTermosTexto] = useState('');
   const [pixInfo, setPixInfo] = useState({ chave: '', banco: '' });
   const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'dinheiro' | 'cartao'>('pix');
+  const [configDobro, setConfigDobro] = useState({ ativo: false, data: '', hora: '00:00' });
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/login?redirect=/ingressos');
@@ -65,7 +66,7 @@ const Ingressos = () => {
     const [{ data: tiposData }, { data: lotesData }, { data: configData }, { data: termosData }] = await Promise.all([
       supabase.from('tipos_ingresso').select('*').eq('ativo', true),
       supabase.from('lotes_ingresso').select('*'),
-      supabase.from('site_config').select('*').in('chave', ['pix_chave', 'pix_banco']),
+      supabase.from('site_config').select('*').in('chave', ['pix_chave', 'pix_banco', 'config_dobro_ingresso']),
       (supabase.from('termos_config') as any).select('tipo,conteudo').eq('tipo', 'ingressos').maybeSingle(),
     ]);
     if (tiposData) setTipos(tiposData as any[]);
@@ -75,6 +76,8 @@ const Ingressos = () => {
       const banco = configData.find(c => c.chave === 'pix_banco');
       if (pix) setPixInfo(prev => ({ ...prev, chave: String(pix.valor).replace(/"/g, '') }));
       if (banco) setPixInfo(prev => ({ ...prev, banco: String(banco.valor).replace(/"/g, '') }));
+      const dobro = configData.find(c => c.chave === 'config_dobro_ingresso');
+      if (dobro?.valor) setConfigDobro(dobro.valor as any);
     }
     if (termosData?.conteudo) setTermosTexto(String(termosData.conteudo || ''));
     setLoading(false);
@@ -105,6 +108,16 @@ const Ingressos = () => {
   }, []);
 
   const todayISO = new Date().toISOString().split('T')[0];
+  
+  const isDoublePrice = (() => {
+    if (!configDobro.ativo || !configDobro.data) return false;
+    try {
+      const limit = new Date(`${configDobro.data}T${configDobro.hora || '00:00'}`);
+      return new Date() >= limit;
+    } catch (e) {
+      return false;
+    }
+  })();
 
   const getLoteAtual = (grupoId: string | null): LoteIngresso | null => {
     if (!grupoId) return null;
@@ -148,7 +161,11 @@ const Ingressos = () => {
     setCart(prev => prev.filter(c => c.tipo.id !== tipoId));
   };
 
-  const cartTotal = cart.reduce((s, c) => s + Number(c.lote.preco || 0) * c.quantidade, 0);
+  const cartTotal = cart.reduce((s, c) => {
+    const basePrice = Number(c.lote.preco || 0);
+    const price = isDoublePrice ? basePrice * 2 : basePrice;
+    return s + price * c.quantidade;
+  }, 0);
   const cartItemCount = cart.reduce((s, c) => s + c.quantidade, 0);
 
   const handleOpenForm = () => {
@@ -196,7 +213,12 @@ const Ingressos = () => {
       // Insert one record per individual ticket
       for (const item of cart) {
         const serverItem = validation?.items?.find((v: any) => v.tipo_ingresso_id === item.tipo.id);
-        const precoUnitario = serverItem ? serverItem.preco_unitario : Number(item.lote.preco);
+        let precoUnitario = serverItem ? serverItem.preco_unitario : Number(item.lote.preco);
+        
+        // Final sanity check for double price if server didn't handle it
+        if (!serverItem && isDoublePrice) {
+          precoUnitario *= 2;
+        }
 
         for (let i = 0; i < item.quantidade; i++) {
           const { error: saleError } = await supabase.from('ingressos_vendidos').insert({
@@ -298,7 +320,9 @@ const Ingressos = () => {
                         </p>
                       </div>
                       <div className="flex items-center justify-between sm:justify-end gap-3">
-                        <p className="text-xl sm:text-2xl font-bold text-primary font-sans whitespace-nowrap">R$ {Number(loteAtual?.preco || 0).toFixed(2)}</p>
+                        <p className="text-xl sm:text-2xl font-bold text-primary font-sans whitespace-nowrap">
+                          R$ {(Number(loteAtual?.preco || 0) * (isDoublePrice ? 2 : 1)).toFixed(2)}
+                        </p>
                         {inCart ? (
                           <div className="flex items-center gap-1.5">
                             <Button variant="outline" size="icon" className="h-8 w-8 border-border" onClick={() => updateCartQty(tipo.id, -1)}>
@@ -335,7 +359,7 @@ const Ingressos = () => {
                     {cart.map(item => (
                       <div key={item.tipo.id} className="flex justify-between text-sm font-sans">
                         <span className="text-foreground">{item.quantidade}x {item.tipo.nome}</span>
-                        <span className="text-muted-foreground">R$ {(Number(item.lote.preco) * item.quantidade).toFixed(2)}</span>
+                        <span className="text-muted-foreground">R$ {(Number(item.lote.preco) * (isDoublePrice ? 2 : 1) * item.quantidade).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -381,7 +405,7 @@ const Ingressos = () => {
                   {cart.map(item => (
                     <div key={item.tipo.id} className="flex justify-between text-foreground">
                       <span>{item.quantidade}x {item.tipo.nome} — {item.lote.nome}</span>
-                      <span>R$ {(Number(item.lote.preco) * item.quantidade).toFixed(2)}</span>
+                      <span>R$ {(Number(item.lote.preco) * (isDoublePrice ? 2 : 1) * item.quantidade).toFixed(2)}</span>
                     </div>
                   ))}
                   <div className="border-t border-border pt-2 mt-2">

@@ -18,7 +18,7 @@ interface StandItem {
   contato?: string;
 }
 
-const ICON_MAP: Record<string, any> = { camera: Camera, scissors: Scissors, circle: CircleDot };
+const ICON_MAP: Record<string, any> = { camera: Camera, scissors: Scissors, circle: CircleDot, clock: Clock };
 
 const Index = () => {
   const [config, setConfig] = useState<Record<string, any>>({});
@@ -167,8 +167,8 @@ const Index = () => {
           Sobre o Festival
         </h2>
         <div className={`grid gap-6 ${infoCards.length === 1 ? 'max-w-xs mx-auto' : infoCards.length === 2 ? 'md:grid-cols-2 max-w-2xl mx-auto' : 'md:grid-cols-3'}`}>
-          {infoCards.map(({ icon: Icon, title, desc }) => (
-            <Card key={title} className="bg-card border-border hover:border-gold/50 transition-colors">
+          {infoCards.map(({ icon: Icon, title, desc }, idx) => (
+            <Card key={`info-${title}-${idx}`} className="bg-card border-border hover:border-gold/50 transition-colors">
               <CardContent className="p-6 text-center">
                 <Icon className="w-10 h-10 mx-auto mb-4 text-primary" />
                 <h3 className="text-lg font-serif font-semibold mb-2 text-foreground">{title}</h3>
@@ -186,8 +186,8 @@ const Index = () => {
             Modalidades
           </h2>
           <div className="flex flex-wrap justify-center gap-3">
-            {modalidades.map((m) => (
-              <Badge key={m} variant="secondary" className="text-sm px-4 py-2 font-sans bg-muted text-foreground hover:bg-primary hover:text-primary-foreground transition-colors cursor-default">
+            {modalidades.map((m, idx) => (
+              <Badge key={`mod-${m}-${idx}`} variant="secondary" className="text-sm px-4 py-2 font-sans bg-muted text-foreground hover:bg-primary hover:text-primary-foreground transition-colors cursor-default">
                 {m}
               </Badge>
             ))}
@@ -219,8 +219,8 @@ const Index = () => {
             Premiações
           </h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {premiacoes.map(({ categoria, valor }: any) => (
-              <Card key={categoria} className="bg-card border-border hover:border-gold/50 transition-colors">
+            {premiacoes.map(({ categoria, valor }: any, idx: number) => (
+              <Card key={`premio-${categoria}-${idx}`} className="bg-card border-border hover:border-gold/50 transition-colors">
                 <CardContent className="p-6 text-center">
                   <Star className="w-6 h-6 mx-auto mb-3 text-primary" />
                   <h3 className="font-serif font-semibold text-foreground mb-1">{categoria}</h3>
@@ -242,8 +242,8 @@ const Index = () => {
             Critérios de Pontuação
           </h2>
           <div className="space-y-4">
-            {Object.entries(pontuacao).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between">
+            {Object.entries(pontuacao).map(([key, value], idx) => (
+              <div key={`pontuacao-${key}-${idx}`} className="flex items-center justify-between">
                 <span className="capitalize font-sans text-foreground">
                   {key.replace(/_/g, ' ')}
                 </span>
@@ -289,7 +289,7 @@ const Index = () => {
             {stands.map((stand, idx) => {
               const IconComp = ICON_MAP[stand.icone] || CircleDot;
               return (
-                <Card key={idx} className="bg-card border-border">
+                <Card key={`stand-${idx}-${stand.titulo}`} className="bg-card border-border">
                   <CardContent className="p-6">
                     <IconComp className="w-8 h-8 text-primary mb-4" />
                     <h3 className="font-serif font-semibold text-foreground mb-3">{stand.titulo}</h3>

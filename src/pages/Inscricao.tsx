@@ -54,6 +54,12 @@ const Inscricao = () => {
   const [formConfigs, setFormConfigs] = useState<any[]>([]);
   const [dadosAdicionais, setDadosAdicionais] = useState<Record<string, any>>({});
   const [systemOptions, setSystemOptions] = useState<SystemOptionItem[]>([]);
+  const [eventoDatas, setEventoDatas] = useState<string[]>([]);
+  const [configDobro, setConfigDobro] = useState<Record<string, { ativo: boolean; data: string; hora: string }>>({
+    competicao: { ativo: false, data: '', hora: '00:00' },
+    mostra: { ativo: false, data: '', hora: '00:00' },
+    workshop: { ativo: false, data: '', hora: '00:00' },
+  });
 
   // Profile
   const [cpf, setCpf] = useState('');
@@ -99,16 +105,28 @@ const Inscricao = () => {
   const [tipoCompraWorkshop, setTipoCompraWorkshop] = useState<TipoCompraWorkshop>('1_aula');
 
   // Computed
-  const eventoDay = checkEventDay();
+  const isDoublePrice = (() => {
+    if (!tipoInscricao) return false;
+    const config = configDobro[tipoInscricao];
+    if (!config || !config.ativo || !config.data) return false;
+    
+    try {
+      const limit = new Date(`${config.data}T${config.hora || '00:00'}`);
+      return new Date() >= limit;
+    } catch (e) {
+      return false;
+    }
+  })();
+
   const numIntegrantes = categoria === 'solo' ? 1 : participantes.length + 1;
 
   const precoBase = (() => {
     if (tipoInscricao === 'competicao' && loteAtual)
-      return calcularPreco(loteAtual, categoria, numIntegrantes, eventoDay);
+      return calcularPreco(loteAtual, categoria, numIntegrantes, isDoublePrice);
     if (tipoInscricao === 'mostra' && loteAtualMostra)
-      return calcularPrecoMostra(loteAtualMostra, categoria, numIntegrantes, eventoDay);
+      return calcularPrecoMostra(loteAtualMostra, categoria, numIntegrantes, isDoublePrice);
     if (tipoInscricao === 'workshop' && loteAtualWorkshop)
-      return calcularPrecoWorkshop(loteAtualWorkshop, tipoCompraWorkshop, eventoDay);
+      return calcularPrecoWorkshop(loteAtualWorkshop, tipoCompraWorkshop, isDoublePrice);
     return 0;
   })();
 
@@ -172,12 +190,18 @@ const Inscricao = () => {
       if (map.pix_chave) setPixInfo(prev => ({ ...prev, chave: String(map.pix_chave).replace(/"/g, '') }));
       if (map.pix_banco) setPixInfo(prev => ({ ...prev, banco: String(map.pix_banco).replace(/"/g, '') }));
       if (map.evento_pix && !map.pix_chave) setPixInfo(prev => ({ ...prev, chave: String(map.evento_pix).replace(/"/g, '') }));
-      setInscricoesAbertas({
-        competicao: map.inscricoes_abertas_competicao !== false,
-        mostra: map.inscricoes_abertas_mostra !== false,
-        workshop: map.inscricoes_abertas_workshop !== false,
-      });
-    }
+        setInscricoesAbertas({
+          competicao: map.inscricoes_abertas_competicao !== false,
+          mostra: map.inscricoes_abertas_mostra !== false,
+          workshop: map.inscricoes_abertas_workshop !== false,
+        });
+        if (map.evento_datas) setEventoDatas(map.evento_datas);
+        setConfigDobro({
+          competicao: map.config_dobro_competicao || { ativo: false, data: '', hora: '00:00' },
+          mostra: map.config_dobro_mostra || { ativo: false, data: '', hora: '00:00' },
+          workshop: map.config_dobro_workshop || { ativo: false, data: '', hora: '00:00' },
+        });
+      }
     if (profileData) {
       setCpf(profileData.cpf || '');
       setTelefone(profileData.telefone || '');

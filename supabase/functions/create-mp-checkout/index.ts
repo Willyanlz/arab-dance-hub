@@ -91,6 +91,8 @@ serve(async (req: Request) => {
       },
       statement_descriptor: "FADDA",
       binary_mode: false,
+      expires: true,
+      expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
     };
 
     const mpRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
@@ -116,6 +118,28 @@ serve(async (req: Request) => {
 
     if (supabaseUrl && supabaseKey && payload.pagamento_id) {
       await sb.from("pagamentos").update({ preference_id: preferenceId }).eq("id", payload.pagamento_id);
+    }
+
+    // NEW: Send "Aguardando Pagamento" email immediately
+    if (payload.email) {
+      const contexto = payload.inscricao_id ? "inscricao" : "ingresso";
+      const descricao = payload.descricao || (contexto === "inscricao" ? "Sua Inscrição" : "Seus Ingressos");
+      
+      await fetch(`${supabaseUrl}/functions/v1/send-pending-payment`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${supabaseKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: payload.email,
+          nome: payload.nome || "Participante",
+          contexto,
+          descricao,
+          valor: payload.valor,
+          metodo: "cartao",
+        }),
+      }).catch((e) => console.error("[create-mp-checkout] Error sending pending email:", e.message));
     }
 
     return new Response(JSON.stringify({ preference_id: preferenceId, init_point: initPoint }), {
