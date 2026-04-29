@@ -320,7 +320,7 @@ const Admin = () => {
           <h1 className="text-2xl font-serif font-bold text-foreground">Painel Administrativo</h1>
           <div className="flex gap-2">
             <Button asChild size="sm" className="bg-gradient-gold text-primary-foreground font-sans">
-              <Link to="/inscricao"><UserPlus className="w-4 h-4 mr-1" /> Nova Inscrição</Link>
+              <Link to="/inscricao?admin=true"><UserPlus className="w-4 h-4 mr-1" /> Inscrição Manual</Link>
             </Button>
             <Button onClick={exportExcel} variant="outline" size="sm" className="border-border text-foreground font-sans">
               <Download className="w-4 h-4 mr-2" /> Exportar Excel

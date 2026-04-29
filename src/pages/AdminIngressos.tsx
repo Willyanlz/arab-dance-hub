@@ -65,6 +65,32 @@ const AdminIngressos = () => {
     setLoading(false);
   };
 
+  const recalcularEstoque = async () => {
+    setLoading(true);
+    try {
+      // Manual sync for each lot
+      for (const lote of lotes) {
+        const { data: vCount } = await supabase
+          .from('ingressos_vendidos')
+          .select('quantidade')
+          .eq('lote_id', lote.id)
+          .neq('status', 'cancelado');
+        
+        const total = (vCount || []).reduce((s, v) => s + (v.quantidade || 0), 0);
+        
+        await supabase
+          .from('lotes_ingresso')
+          .update({ quantidade_vendida: total } as any)
+          .eq('id', lote.id);
+      }
+      toast({ title: '✅ Estoque recalculado com sucesso!' });
+      loadData();
+    } catch (e: any) {
+      toast({ title: 'Erro ao recalcular', description: e.message, variant: 'destructive' });
+      setLoading(false);
+    }
+  };
+
   const updateStatus = async (ids: string | string[], status: string) => {
     try {
       const idsArray = Array.isArray(ids) ? ids : [ids];
@@ -159,6 +185,12 @@ const AdminIngressos = () => {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <Button onClick={recalcularEstoque} variant="outline" size="sm" className="border-border font-sans">
+              <PackageX className="w-4 h-4 mr-1" /> Sincronizar Estoque
+            </Button>
+            <Button asChild size="sm" className="bg-gradient-gold text-primary-foreground font-sans">
+              <Link to="/ingressos?admin=true"><Ticket className="w-4 h-4 mr-1" /> Venda Manual</Link>
+            </Button>
             <Button asChild variant="outline" size="sm" className="border-border font-sans"><Link to="/admin">← Admin</Link></Button>
           </div>
         </div>

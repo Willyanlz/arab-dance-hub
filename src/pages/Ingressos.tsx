@@ -10,7 +10,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { ArrowLeft, Ticket, Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { isValidCpf, isValidEmail, isValidPhoneBR, maskCpf, maskPhone } from '@/lib/inputValidation';
+import { UserPlus, ShieldCheck } from 'lucide-react';
 
 interface LoteIngresso {
   id: string;
@@ -40,7 +42,9 @@ interface CartItem {
 }
 
 const Ingressos = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const adminMode = searchParams.get('admin') === 'true' && isAdmin;
   const navigate = useNavigate();
   const [tipos, setTipos] = useState<TipoIngresso[]>([]);
   const [lotes, setLotes] = useState<LoteIngresso[]>([]);
@@ -56,6 +60,7 @@ const Ingressos = () => {
   const [termosTexto, setTermosTexto] = useState('');
   const [pixInfo, setPixInfo] = useState({ chave: '', banco: '' });
   const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'dinheiro' | 'cartao'>('pix');
+  const [compraParaTerceiro, setCompraParaTerceiro] = useState(false);
   const [configDobro, setConfigDobro] = useState({ ativo: false, data: '', hora: '00:00' });
 
   useEffect(() => {
@@ -86,7 +91,7 @@ const Ingressos = () => {
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || adminMode || compraParaTerceiro) return;
     setEmail(user.email || '');
     supabase.from('profiles').select('nome, cpf, telefone').eq('user_id', user.id).single().then(({ data }) => {
       if (data) {
@@ -95,7 +100,7 @@ const Ingressos = () => {
         if (data.telefone) setTelefone(data.telefone);
       }
     });
-  }, [user]);
+  }, [user, adminMode, compraParaTerceiro]);
 
   useEffect(() => {
     const channel = supabase
@@ -130,11 +135,19 @@ const Ingressos = () => {
   };
 
   const availableTipos = tipos.filter(t => !!getLoteAtual(t.grupo_id));
+  const cartItemCount = cart.reduce((s, c) => s + c.quantidade, 0);
 
   // Cart helpers
   const addToCart = (tipo: TipoIngresso) => {
     const lote = getLoteAtual(tipo.grupo_id);
     if (!lote) return;
+    
+    // Enforce 2 tickets limit total
+    if (cartItemCount >= 2) {
+      toast({ title: 'Limite de ingressos', description: 'Você pode comprar no máximo 2 ingressos por vez.', variant: 'destructive' });
+      return;
+    }
+
     const existing = cart.find(c => c.tipo.id === tipo.id);
     const disponivel = lote.quantidade_total - (lote.quantidade_vendida || 0);
     if (existing) {
@@ -149,6 +162,10 @@ const Ingressos = () => {
   };
 
   const updateCartQty = (tipoId: string, delta: number) => {
+    if (delta > 0 && cartItemCount >= 2) {
+      toast({ title: 'Limite atingido', description: 'Máximo de 2 ingressos por compra.', variant: 'destructive' });
+      return;
+    }
     setCart(prev => prev.map(c => {
       if (c.tipo.id !== tipoId) return c;
       const disponivel = c.lote.quantidade_total - (c.lote.quantidade_vendida || 0);
@@ -189,7 +206,7 @@ const Ingressos = () => {
     if (!isValidCpf(cpf)) { toast({ title: 'CPF inválido', variant: 'destructive' }); return; }
     if (!isValidEmail(email)) { toast({ title: 'E-mail inválido', variant: 'destructive' }); return; }
     if (telefone && !isValidPhoneBR(telefone)) { toast({ title: 'Telefone inválido', variant: 'destructive' }); return; }
-    if (!termos) { toast({ title: 'Aceite os termos para continuar', variant: 'destructive' }); return; }
+    if (!termos && !adminMode) { toast({ title: 'Aceite os termos para continuar', variant: 'destructive' }); return; }
 
     setSubmitting(true);
     try {
@@ -205,6 +222,26 @@ const Ingressos = () => {
         setSubmitting(false);
         loadData();
         return;
+      }
+
+      let targetUserId = user?.id || null;
+
+      // Logic for Admin Manual Sale or Third Party
+      if (adminMode || compraParaTerceiro) {
+        // 1. Check if user exists by email in profiles
+        const { data: profile } = await supabase.from('profiles').select('user_id').eq('email', email).maybeSingle();
+        
+        if (profile) {
+          targetUserId = profile.user_id;
+        } else if (adminMode) {
+          // 2. Create user if Admin is doing a manual sale
+          const { data: userData, error: createErr } = await supabase.functions.invoke('admin-users', {
+            body: { action: 'create_user', email, nome, cpf, telefone }
+          });
+          if (createErr) throw createErr;
+          if (userData?.error) throw new Error(userData.error);
+          targetUserId = userData.user?.id;
+        }
       }
 
       const pedidoRef = crypto.randomUUID();
@@ -223,7 +260,8 @@ const Ingressos = () => {
         for (let i = 0; i < item.quantidade; i++) {
           const { error: saleError } = await supabase.from('ingressos_vendidos').insert({
             tipo_ingresso_id: item.tipo.id,
-            user_id: user?.id || null,
+            lote_id: item.lote.id,
+            user_id: targetUserId,
             nome_comprador: nome,
             cpf,
             email,
@@ -268,10 +306,14 @@ const Ingressos = () => {
         body: { email, nome, contexto: 'ingresso', descricao: descParts.join(', '), valor: cartTotal, metodo: metodoPagamento }
       }).catch(console.error);
 
-      toast({ title: '🎫 Compra registrada!', description: 'Aguardando confirmação do pagamento.' });
+      toast({ 
+        title: '🎫 Compra registrada!', 
+        description: adminMode ? 'Venda manual concluída com sucesso.' : 'Aguardando confirmação do pagamento.' 
+      });
       setShowForm(false);
       setCart([]);
       setTermos(false);
+      if (adminMode) navigate('/admin/ingressos');
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
     } finally {
@@ -292,7 +334,14 @@ const Ingressos = () => {
           <h1 className="text-3xl font-serif font-bold text-foreground mb-1 flex items-center gap-2">
             <Ticket className="w-8 h-8 text-primary" /> Ingressos
           </h1>
-          <p className="text-muted-foreground font-sans">Selecione seus ingressos e adicione ao carrinho</p>
+          {adminMode ? (
+            <div className="bg-primary/10 border border-primary/20 p-3 rounded-lg flex items-center gap-2 mt-2">
+              <ShieldCheck className="w-5 h-5 text-primary" />
+              <p className="text-sm font-sans font-bold text-primary uppercase tracking-wider">Modo Administrativo: Venda Manual</p>
+            </div>
+          ) : (
+            <p className="text-muted-foreground font-sans">Selecione seus ingressos e adicione ao carrinho</p>
+          )}
         </div>
 
         {availableTipos.length === 0 ? (
@@ -379,8 +428,19 @@ const Ingressos = () => {
         {showForm && cart.length > 0 && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
             <Card className="bg-card border-border w-full max-w-md max-h-[90vh] overflow-y-auto">
-              <CardHeader>
-                <CardTitle className="font-serif text-foreground">Dados do Comprador</CardTitle>
+              <CardHeader className="pb-2">
+                <CardTitle className="font-serif text-foreground flex justify-between items-center">
+                  <span>Dados do Comprador</span>
+                  {!adminMode && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox checked={compraParaTerceiro} onCheckedChange={(v) => {
+                        setCompraParaTerceiro(!!v);
+                        if (v) { setNome(''); setCpf(''); setEmail(''); setTelefone(''); }
+                      }} />
+                      <span className="text-xs font-sans text-muted-foreground">Comprar para outra pessoa</span>
+                    </label>
+                  )}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -431,6 +491,11 @@ const Ingressos = () => {
                   <p className="text-xs text-muted-foreground">
                     {metodoPagamento === 'pix' ? `${pixInfo.banco} — Envie o comprovante após a compra` : metodoPagamento === 'dinheiro' ? 'Confirmação manual pela organização.' : 'Redirecionado ao Mercado Pago.'}
                   </p>
+                  {adminMode && (
+                    <div className="mt-3 p-2 bg-primary/10 rounded-lg text-[10px] text-primary flex items-center justify-center gap-1">
+                      <UserPlus className="w-3 h-3" /> Conta será criada se não existir
+                    </div>
+                  )}
                 </div>
 
                 {termosTexto && (

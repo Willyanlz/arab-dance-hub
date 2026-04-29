@@ -20,14 +20,23 @@ interface Props {
   setIsAnterior: (v: boolean) => void;
   onBack: () => void;
   onNext: () => void;
+  adminMode?: boolean;
+  nome?: string;
+  setNome?: (v: string) => void;
+  email?: string;
+  setEmail?: (v: string) => void;
 }
 
 export const StepDadosPessoais = ({
   tipoInscricao, cpf, setCpf, telefone, setTelefone,
   isJalilete, setIsJalilete, isAnterior, setIsAnterior,
-  onBack, onNext,
+  onBack, onNext, adminMode, nome, setNome, email, setEmail
 }: Props) => {
   const handleNext = () => {
+    if (adminMode) {
+      if (!nome) { toast({ title: 'Nome obrigatório', variant: 'destructive' }); return; }
+      if (!email) { toast({ title: 'E-mail obrigatório', variant: 'destructive' }); return; }
+    }
     if (!isValidCpf(cpf)) { toast({ title: 'CPF inválido', variant: 'destructive' }); return; }
     if (!isValidPhoneBR(telefone)) { toast({ title: 'Telefone inválido', description: 'Use DDD + número (ex: 16999999999).', variant: 'destructive' }); return; }
     onNext();
@@ -46,6 +55,18 @@ export const StepDadosPessoais = ({
         <CardTitle className="font-serif text-foreground">1. Dados Pessoais</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {adminMode && (
+          <>
+            <div>
+              <Label className="text-foreground font-sans">Nome Completo *</Label>
+              <Input value={nome} onChange={e => setNome?.(e.target.value)} placeholder="Nome do participante" className="bg-background border-border text-foreground" />
+            </div>
+            <div>
+              <Label className="text-foreground font-sans">E-mail *</Label>
+              <Input type="email" value={email} onChange={e => setEmail?.(e.target.value)} placeholder="email@exemplo.com" className="bg-background border-border text-foreground" />
+            </div>
+          </>
+        )}
         <div>
           <Label className="text-foreground font-sans">CPF *</Label>
           <Input value={cpf} onChange={e => setCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" className="bg-background border-border text-foreground" />

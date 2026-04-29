@@ -19,7 +19,9 @@ import {
 import { ArrowLeft, Trophy, Star, BookOpen } from 'lucide-react';
 import { FormFieldConfig } from './admin-config/components/FormBuilder';
 import { getSystemOptions, type SystemOptionItem } from '@/lib/systemOptions';
+import { useSearchParams } from 'react-router-dom';
 import { isValidCpf, isValidEmail, isValidPhoneBR, maskCpf, maskPhone } from '@/lib/inputValidation';
+import { ShieldCheck, UserPlus } from 'lucide-react';
 
 import type { Participante, WorkshopItem, TipoInscricao } from './inscricao/types';
 import { StepTipoSelector } from './inscricao/StepTipoSelector';
@@ -28,7 +30,9 @@ import { StepParticipantes } from './inscricao/StepParticipantes';
 import { StepResumo } from './inscricao/StepResumo';
 
 const Inscricao = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const adminMode = searchParams.get('admin') === 'true' && isAdmin;
   const navigate = useNavigate();
 
   const [tipoInscricao, setTipoInscricao] = useState<TipoInscricao | null>(null);
@@ -62,6 +66,8 @@ const Inscricao = () => {
   });
 
   // Profile
+  const [nome, setNome] = useState('');
+  const [email, setEmail] = useState('');
   const [cpf, setCpf] = useState('');
   const [telefone, setTelefone] = useState('');
   const [isJalilete, setIsJalilete] = useState(false);
@@ -152,6 +158,10 @@ const Inscricao = () => {
 
   const load = async () => {
     if (!user) return;
+    if (!adminMode) {
+      setEmail(user.email || '');
+      setNome(user.user_metadata?.nome || '');
+    }
     setLoadingData(true);
     const [
       { data: lotesData }, { data: lotesMostraData }, { data: lotesWorkshopData },
@@ -456,10 +466,29 @@ const Inscricao = () => {
       if (tipoInscricao === 'workshop' && loteAtualWorkshop && (today < loteAtualWorkshop.data_inicio || today > loteAtualWorkshop.data_fim)) loteValid = false;
       if (!loteValid) { toast({ title: 'Lote Expirado', description: 'Recarregue para obter os novos preços.', variant: 'destructive' }); setLoading(false); load(); return; }
 
-      await supabase.from('profiles').update({ cpf, telefone, is_aluna_jalilete: isJalilete, participante_anterior: isAnterior }).eq('user_id', user.id);
+      let targetUserId = user.id;
+
+      if (adminMode) {
+        // Check if user exists
+        const { data: profile } = await supabase.from('profiles').select('user_id').eq('email', email).maybeSingle();
+        
+        if (profile) {
+          targetUserId = profile.user_id;
+        } else {
+          // Create user via edge function
+          const { data: userData, error: createErr } = await supabase.functions.invoke('admin-users', {
+            body: { action: 'create_user', email, nome, cpf, telefone }
+          });
+          if (createErr) throw createErr;
+          if (userData?.error) throw new Error(userData.error);
+          targetUserId = userData.user?.id;
+        }
+      } else {
+        await supabase.from('profiles').update({ cpf, telefone, is_aluna_jalilete: isJalilete, participante_anterior: isAnterior }).eq('user_id', user.id);
+      }
 
       const baseData = {
-        user_id: user.id, tipo_inscricao: tipoInscricao!, categoria,
+        user_id: targetUserId, tipo_inscricao: tipoInscricao!, categoria,
         nome_escola: nomeEscola || null, professora: professora || null,
         num_integrantes: numIntegrantes, valor_total: precoBase,
         desconto_percentual: desconto, valor_final: valorFinal,
@@ -501,8 +530,11 @@ const Inscricao = () => {
         supabase.functions.invoke('send-pending-payment', { body: { email, nome, contexto: 'inscricao', descricao: `Inscrição ${tipoInscricao}`, valor: valorFinal, metodo: metodoPagamento } }).catch(console.error);
       }
 
-      toast({ title: '✅ Inscrição realizada!', description: 'Aguardando confirmação do pagamento.' });
-      navigate('/dashboard');
+      toast({ 
+        title: adminMode ? '✅ Inscrição manual realizada!' : '✅ Inscrição realizada!', 
+        description: 'Aguardando confirmação do pagamento.' 
+      });
+      navigate(adminMode ? '/admin' : '/dashboard');
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
     } finally {
@@ -533,7 +565,14 @@ const Inscricao = () => {
           <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
         </Link>
         <h1 className="text-3xl font-serif font-bold text-foreground mb-1">Inscrição</h1>
-        <p className="text-muted-foreground font-sans mb-6 text-sm">9º F.A.D.D.A - Festival Araraquarense de Danças Árabes</p>
+        {adminMode ? (
+          <div className="bg-primary/10 border border-primary/20 p-3 rounded-lg flex items-center gap-2 mb-6">
+            <ShieldCheck className="w-5 h-5 text-primary" />
+            <p className="text-sm font-sans font-bold text-primary uppercase tracking-wider">Modo Administrativo: Inscrição Manual</p>
+          </div>
+        ) : (
+          <p className="text-muted-foreground font-sans mb-6 text-sm">9º F.A.D.D.A - Festival Araraquarense de Danças Árabes</p>
+        )}
 
         {step > 0 && (
           <div className="flex gap-1.5 mb-8">
@@ -553,6 +592,9 @@ const Inscricao = () => {
             isAnterior={isAnterior} setIsAnterior={setIsAnterior}
             onBack={() => { setStep(0); setTipoInscricao(null); }}
             onNext={() => setStep(2)}
+            adminMode={adminMode}
+            nome={nome} setNome={setNome}
+            email={email} setEmail={setEmail}
           />
         )}
 
